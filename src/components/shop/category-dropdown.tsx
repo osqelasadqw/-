@@ -6,7 +6,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Category, Product } from '@/types';
 import { getCategories, getProductsByCategory } from '@/lib/firebase-service';
-import { ChevronDown, Pin } from 'lucide-react';
+import { ChevronDown, Pin, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function CategoryDropdown() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -108,6 +109,11 @@ export function CategoryDropdown() {
     }
   };
 
+  const handleClickCategory = (categoryId: string) => {
+    router.push(`/shop?category=${categoryId}`);
+    setIsOpen(false);
+  };
+
   return (
     <div className="relative inline-block text-left">
       {/* დროფდაუნის ტრიგერი */}
@@ -138,52 +144,73 @@ export function CategoryDropdown() {
       {/* დროფდაუნის კონტენტი */}
       {isOpen && (
         <div 
-          className="fixed z-[100] top-[70px] left-1/2 -translate-x-1/2 rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none transition-all animate-in fade-in-20 zoom-in-95 slide-in-from-top-1 duration-150"
-          style={{ width: '1000px', height: '500px' }}
+          className="fixed z-[100] top-[70px] left-1/2 -translate-x-1/2 rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none transition-all animate-in fade-in-20 zoom-in-95 slide-in-from-top-1 duration-150 max-w-[95vw] w-full max-h-[80vh]"
+          style={{ maxWidth: '1000px' }}
           onMouseEnter={handleMouseEnterContent}
           onMouseLeave={handleMouseLeaveContent}
         >
-          <div className="flex divide-x h-full">
+          <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x h-full">
             {/* კატეგორიების სია */}
-            <div className="w-72 py-2 h-full overflow-y-auto">
+            <div className="w-full md:w-72 py-2 h-full max-h-[80vh] md:max-h-[80vh] overflow-y-auto">
               {isLoading ? (
                 <div className="px-4 py-2 text-sm text-gray-500">
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="h-4 w-4 bg-gray-200 rounded-full animate-pulse"></div>
-                    <span>იტვირთება...</span>
+                  <div className="flex items-center">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    იტვირთება...
                   </div>
                 </div>
-              ) : categories.length > 0 ? (
-                <div>
-                  {categories.map((category) => (
-                    <div
-                      key={category.id}
-                      className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer transition-colors ${
-                        hoveredCategory === category.id ? 'bg-gray-100 text-primary font-medium' : ''
-                      }`}
-                      onMouseEnter={() => handleCategoryHover(category.id)}
-                      onClick={() => {
-                        router.push(`/shop?category=${category.id}`);
-                        setIsOpen(false);
-                      }}
-                    >
-                      {category.name}
-                    </div>
-                  ))}
-                </div>
               ) : (
-                <div className="px-4 py-2 text-sm text-gray-500">კატეგორიები არ მოიძებნა</div>
+                <>
+                  {/* მობაილზე - ვერტიკალური სია, სრული სიმაღლით */}
+                  <div className="block md:hidden">
+                    <div className="space-y-1">
+                      {categories.map((category) => (
+                        <button
+                          key={category.id}
+                          className={cn(
+                            "w-full text-left px-4 py-3 text-sm font-medium flex items-center",
+                            hoveredCategory === category.id
+                              ? "bg-gray-100 text-primary"
+                              : "text-gray-700 hover:bg-gray-50"
+                          )}
+                          onClick={() => handleClickCategory(category.id)}
+                        >
+                          {category.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* დესკტოპზე - სტანდარტული ჩვენება */}
+                  <div className="hidden md:block">
+                    {categories.map((category) => (
+                      <button
+                        key={category.id}
+                        className={cn(
+                          "w-full text-left px-4 py-2 text-sm",
+                          hoveredCategory === category.id
+                            ? "bg-gray-100 text-gray-900"
+                            : "text-gray-600 hover:bg-gray-50"
+                        )}
+                        onMouseEnter={() => handleCategoryHover(category.id)}
+                        onClick={() => handleClickCategory(category.id)}
+                      >
+                        {category.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
             
-            {/* პროდუქტების ფოტოები */}
-            <div className="flex-1 p-4 h-full overflow-y-auto">
+            {/* პროდუქტების ფოტოები - მხოლოდ დესკტოპზე */}
+            <div className="flex-1 p-4 h-full max-h-[50vh] md:max-h-[80vh] overflow-y-auto hidden md:block">
               {hoveredCategory ? (
                 <div>
                   <h2 className="text-sm font-medium mb-3 border-b pb-2">
                     {categories.find(c => c.id === hoveredCategory)?.name}
                   </h2>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {categoryProducts[hoveredCategory]?.length > 0 ? (
                       categoryProducts[hoveredCategory].map(product => (
                         <Link 
@@ -191,14 +218,18 @@ export function CategoryDropdown() {
                           key={product.id}
                           className="group"
                         >
-                          <div className="aspect-square rounded-md overflow-hidden bg-gray-100 group-hover:shadow-md transition-all group-hover:scale-105 duration-200">
+                          <div className="aspect-square rounded-md overflow-hidden bg-gray-100 group-hover:shadow-md transition-all">
                             {product.images && product.images[0] ? (
                               <Image
                                 src={product.images[0]}
                                 alt={product.name}
-                                width={80}
-                                height={80}
+                                width={200}
+                                height={200}
+                                quality={100}
                                 className="h-full w-full object-cover"
+                                loading="eager"
+                                placeholder="blur"
+                                blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.onerror = null;
@@ -207,7 +238,7 @@ export function CategoryDropdown() {
                               />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center bg-gray-100 text-gray-400">
-                                <span className="text-xs">No image</span>
+                                <span className="text-sm font-medium">სურათი არ არის</span>
                               </div>
                             )}
                           </div>

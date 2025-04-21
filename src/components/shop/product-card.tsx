@@ -75,7 +75,7 @@ export function ProductCard({ product, loading = false, specialBadge = false, is
               alt={product.name}
               width={200}
               height={200}
-              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
+              className="h-full w-full object-cover"
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
               sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"

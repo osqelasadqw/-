@@ -7,7 +7,7 @@ import { getProductById, getProductsByCategory } from '@/lib/firebase-service';
 import { Product } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/components/providers/cart-provider';
-import { ShoppingCart, Minus, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Minus, Plus, X, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -19,6 +19,25 @@ import {
 } from "@/components/ui/select"
 import dynamic from 'next/dynamic';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 
@@ -36,6 +55,12 @@ export default function ProductDetailPage() {
   const [isPublicDiscount, setIsPublicDiscount] = useState(false);
   const [discountedPrice, setDiscountedPrice] = useState(0);
   const [_error, setError] = useState<string | null>(null); // გამოუყენებელი error ცვლადი
+
+  // Filtering state for related products
+  const [minMaxPrice, setMinMaxPrice] = useState<[number, number]>([0, 1000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
+  const [userModifiedRange, setUserModifiedRange] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -82,6 +107,17 @@ export default function ProductDetailPage() {
       // Filter out the current product
       const otherProducts = products.filter(p => p.id !== currentProductId);
       setRelatedProducts(otherProducts);
+      
+      // Set min and max price for the filter
+      if (otherProducts.length > 0) {
+        const prices = otherProducts.map(p => p.price || 0);
+        const calculatedMinMax: [number, number] = [
+          Math.floor(Math.min(...prices)), 
+          Math.ceil(Math.max(...prices))
+        ];
+        setMinMaxPrice(calculatedMinMax);
+        setPriceRange([calculatedMinMax[0], calculatedMinMax[1]]);
+      }
     } catch (error) {
       console.error('Error fetching related products:', error);
     }
@@ -133,9 +169,50 @@ export default function ProductDetailPage() {
     setIsImageZoomed(!isImageZoomed);
   };
 
-  // Memoized sorted related products for performance
-  const sortedRelatedProducts = React.useMemo(() => {
-    const sorted = [...relatedProducts];
+  // Filter functions
+  const handlePriceChange = (value: number[]) => {
+    setPriceRange([value[0], value[1]]);
+    setUserModifiedRange(true);
+  };
+
+  const handleReset = () => {
+    setPriceRange([minMaxPrice[0], minMaxPrice[1]]);
+    setUserModifiedRange(false);
+    setRelatedSortOption('newest');
+  };
+
+  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newMinPrice = Number(e.target.value);
+    if (isNaN(newMinPrice) || newMinPrice < minMaxPrice[0]) return;
+    
+    if (newMinPrice <= priceRange[1]) {
+      setPriceRange([newMinPrice, priceRange[1]]);
+      setUserModifiedRange(true);
+    }
+  };
+
+  const handleMaxPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newMaxPrice = Number(e.target.value);
+    if (isNaN(newMaxPrice) || newMaxPrice > minMaxPrice[1]) return;
+    
+    if (newMaxPrice >= priceRange[0]) {
+      setPriceRange([priceRange[0], newMaxPrice]);
+      setUserModifiedRange(true);
+    }
+  };
+
+  // Memoized filtered and sorted related products for performance
+  const filteredAndSortedRelatedProducts = React.useMemo(() => {
+    // First filter by price
+    const filtered = relatedProducts.filter(product => {
+      return !userModifiedRange || (
+        product.price >= priceRange[0] && 
+        product.price <= priceRange[1]
+      );
+    });
+    
+    // Then sort
+    const sorted = [...filtered];
     switch (relatedSortOption) {
       case 'price-asc':
         sorted.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
@@ -149,12 +226,12 @@ export default function ProductDetailPage() {
       case 'name-desc':
         sorted.sort((a, b) => b.name.localeCompare(a.name));
         break;
-      case 'newest': // If 'newest' means default fetched order, no sorting needed.
+      case 'newest': // No sorting for newest (default)
       default:
-        return relatedProducts; // Avoid creating new array if no sort needed
+        return filtered; // Avoid creating new array if no sort needed
     }
     return sorted;
-  }, [relatedProducts, relatedSortOption]);
+  }, [relatedProducts, relatedSortOption, priceRange, userModifiedRange]);
 
   if (isLoading) {
     return (
@@ -196,227 +273,440 @@ export default function ProductDetailPage() {
 
   return (
     <ShopLayout>
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Product Images */}
-        <div className="w-full md:w-2/5">
-          {/* Main Image */}
-          <div 
-            className="relative aspect-square overflow-hidden rounded-md bg-white border cursor-pointer flex items-center justify-center max-h-[70vh]"
-            onClick={toggleImageZoom}
-          >
-            {/* ფასდაკლების Badge */}
-            {isPublicDiscount && (
-              <div className="absolute top-4 right-4 z-10 bg-red-500 text-white px-2 py-1 rounded-md font-medium">
-                {product.discountPercentage}% ფასდაკლება
-              </div>
-            )}
-          
-            <Image
-              src={currentImage}
-              alt={product.name}
-              fill={true}
-              sizes="(max-width: 768px) 100vw, 40vw"
-              className="object-contain"
-              priority
-              loading="eager"
-              placeholder="blur"
-              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-            />
-            
-            {/* Image Navigation Arrows */}
-            {hasMultipleImages && (
-              <>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); prevImage(); }} 
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-75 p-2 rounded-full shadow hover:bg-opacity-100 transition-all z-10"
-                  aria-label="წინა სურათი"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-75 p-2 rounded-full shadow hover:bg-opacity-100 transition-all z-10"
-                  aria-label="შემდეგი სურათი"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </>
-            )}
-          </div>
-          
-          {/* Thumbnail Gallery */}
-          {hasMultipleImages && (
-            <div className="mt-4 grid grid-cols-5 gap-2">
-              {product.images.map((image, index) => (
-                <div 
-                  key={index} 
-                  className={`aspect-square rounded-md overflow-hidden cursor-pointer border-2 ${
-                    index === currentImageIndex ? 'border-blue-500' : 'border-transparent'
-                  }`}
-                  onClick={() => setCurrentImageIndex(index)}
-                >
-                  <Image 
-                    src={image} 
-                    alt={`${product.name} - სურათი ${index + 1}`} 
-                    width={100}
-                    height={100}
-                    className="h-full w-full object-contain"
-                    loading={index < 5 ? "eager" : "lazy"}
-                    placeholder="blur"
-                    blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                  />
-                </div>
-              ))}
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">{product.name}</h1>
+          {product.categoryId && (
+            <div className="text-sm text-muted-foreground mb-4">
+              <Link href={`/shop?category=${product.categoryId}`} className="hover:underline">
+                {(product as any).category || 'კატეგორია'}
+              </Link>
             </div>
           )}
         </div>
-
-        {/* Product Details */}
-        <div className="w-full md:w-3/5">
-          <h1 className="text-3xl font-bold tracking-tight">{product.name}</h1>
-          <div className="mt-3">
-            {isPublicDiscount ? (
-              <div className="flex flex-col">
-                <p className="text-lg line-through text-muted-foreground">
-                  {new Intl.NumberFormat('ka-GE', {
-                    style: 'currency',
-                    currency: 'GEL',
-                  }).format(product.price)}
-                </p>
-                <p className="text-2xl font-semibold text-red-600">
-                  {new Intl.NumberFormat('ka-GE', {
-                    style: 'currency',
-                    currency: 'GEL',
-                  }).format(discountedPrice)}
-                </p>
-              </div>
-            ) : (
-              <p className="text-2xl font-semibold">
-                {new Intl.NumberFormat('ka-GE', {
-                  style: 'currency',
-                  currency: 'GEL',
-                }).format(product.price)}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-6 space-y-6">
-            <Tabs defaultValue="description" className="w-full">
-              <TabsList className="grid w-full grid-cols-1">
-                <TabsTrigger value="description">აღწერა</TabsTrigger>
-              </TabsList>
-              <TabsContent value="description" className="mt-4">
-                <div className="p-4 rounded-md border">
-                  <p className="text-base text-muted-foreground whitespace-pre-line">
-                    {product.description}
-                  </p>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          <div className="mt-8">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center border rounded-md">
-                <button
-                  type="button"
-                  className="p-2 hover:bg-gray-100"
-                  onClick={() => handleQuantityChange(-1)}
-                  disabled={quantity <= 1}
-                  aria-label="რაოდენობის შემცირება"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <div className="px-4 py-2 tabular-nums">
-                  {quantity}
-                </div>
-                <button
-                  type="button"
-                  className="p-2 hover:bg-gray-100"
-                  onClick={() => handleQuantityChange(1)}
-                  aria-label="რაოდენობის გაზრდა"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-
-              <Button onClick={handleAddToCart} className="flex-1" aria-label={`${product.name} - კალათში დამატება`}>
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                <span>კალათში დამატება</span>
+        <div className="flex items-center gap-2">
+          {/* Mobile filter trigger */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="md:hidden flex items-center gap-1 text-xs"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>ფილტრი</span>
               </Button>
-            </div>
-          </div>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[85vw] max-w-sm">
+              <SheetHeader>
+                <SheetTitle>ფილტრი</SheetTitle>
+                <SheetDescription>
+                  დააფილტრეთ და დაალაგეთ მსგავსი პროდუქტები
+                </SheetDescription>
+              </SheetHeader>
+              <div className="space-y-6 py-4">
+                <div className="space-y-4">
+                  <h2 className="font-medium text-sm">ფასი</h2>
+                  <div className="pt-2 px-2">
+                    <Slider
+                      defaultValue={[minMaxPrice[0], minMaxPrice[1]]}
+                      min={minMaxPrice[0]}
+                      max={minMaxPrice[1]}
+                      step={1}
+                      value={[priceRange[0], priceRange[1]]}
+                      onValueChange={handlePriceChange}
+                      className="mb-3"
+                    />
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col items-center">
+                        <Label htmlFor="min-price-mobile" className="sr-only">მინიმალური ფასი</Label>
+                        <input
+                          id="min-price-mobile"
+                          type="number"
+                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
+                          min={minMaxPrice[0]}
+                          max={priceRange[1]}
+                          value={priceRange[0]}
+                          onChange={handleMinPriceChange}
+                        />
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <Label htmlFor="max-price-mobile" className="sr-only">მაქსიმალური ფასი</Label>
+                        <input
+                          id="max-price-mobile"
+                          type="number"
+                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
+                          min={priceRange[0]}
+                          max={minMaxPrice[1]}
+                          value={priceRange[1]}
+                          onChange={handleMaxPriceChange}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h2 className="font-medium text-sm">დახარისხება</h2>
+                  <Select
+                    value={relatedSortOption}
+                    onValueChange={(value) => setRelatedSortOption(value as SortOption)}
+                  >
+                    <SelectTrigger aria-label="დახარისხების პარამეტრები">
+                      <SelectValue placeholder="აირჩიეთ ვარიანტი" />
+                    </SelectTrigger>
+                    <SelectContent className="after:content-[''] after:block after:h-3">
+                      <SelectItem value="newest">უახლესი</SelectItem>
+                      <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
+                      <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
+                      <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
+                      <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="pt-4">
+                <Button onClick={handleReset} variant="outline" className="w-full">
+                  ფილტრის გასუფთავება
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
 
-      {/* Related Products Section */}
-      {relatedProducts.length > 0 && (
-        <div className="mt-16">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-6">
-            <h2 className="text-2xl font-bold text-center sm:text-left w-full">იმავე კატეგორიის პროდუქტები</h2>
-            {/* Sort Dropdown */}
-            <div className="w-full sm:w-auto flex justify-center sm:justify-end">
-              <Select value={relatedSortOption} onValueChange={(value) => setRelatedSortOption(value as SortOption)}>
-                <SelectTrigger className="w-full max-w-[200px]">
-                  <SelectValue placeholder="დახარისხება" />
-                </SelectTrigger>
-                <SelectContent className="after:content-[''] after:block after:h-3">
-                  <SelectItem value="newest">უახლესი</SelectItem>
-                  <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
-                  <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
-                  <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
-                  <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
-            {sortedRelatedProducts.map((relatedProduct) => (
-              <Link 
-                href={`/shop/product/${relatedProduct.id}`} 
-                key={relatedProduct.id}
-                className="group"
-              >
-                <div className="aspect-square rounded-md overflow-hidden bg-white border mb-2 group-hover:shadow-md transition-all flex items-center justify-center">
-                  {relatedProduct.images && relatedProduct.images[0] ? (
-                    <Image
-                      src={relatedProduct.images[0]}
-                      alt={relatedProduct.name}
-                      width={200}
-                      height={200}
-                      className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-200"
-                      loading="lazy"
-                      placeholder="blur"
-                      blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = '/placeholder.png';
-                      }}
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Desktop floating filter */}
+        {showFilters && (
+          <div className="hidden md:block md:w-64 lg:w-72">
+            <Card className="sticky top-24">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>ფილტრი</CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleReset}
+                    className="h-8 w-8 p-0"
+                    aria-label="ფილტრის გასუფთავება"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <CardDescription>
+                  დააფილტრეთ და დაალაგეთ მსგავსი პროდუქტები
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h2 className="font-medium text-sm">ფასი</h2>
+                  <div className="pt-4 px-2">
+                    <Slider
+                      defaultValue={[minMaxPrice[0], minMaxPrice[1]]}
+                      min={minMaxPrice[0]}
+                      max={minMaxPrice[1]}
+                      step={1}
+                      value={[priceRange[0], priceRange[1]]}
+                      onValueChange={handlePriceChange}
+                      className="mb-3"
                     />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-gray-100 text-gray-400">
-                      <span className="text-xs">No image</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col items-center">
+                        <Label htmlFor="min-price-desktop" className="sr-only">მინიმალური ფასი</Label>
+                        <input
+                          id="min-price-desktop"
+                          type="number"
+                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
+                          min={minMaxPrice[0]}
+                          max={priceRange[1]}
+                          value={priceRange[0]}
+                          onChange={handleMinPriceChange}
+                        />
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <Label htmlFor="max-price-desktop" className="sr-only">მაქსიმალური ფასი</Label>
+                        <input
+                          id="max-price-desktop"
+                          type="number"
+                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
+                          min={priceRange[0]}
+                          max={minMaxPrice[1]}
+                          value={priceRange[1]}
+                          onChange={handleMaxPriceChange}
+                        />
+                      </div>
                     </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h2 className="font-medium text-sm">დახარისხება</h2>
+                  <Select
+                    value={relatedSortOption}
+                    onValueChange={(value) => setRelatedSortOption(value as SortOption)}
+                  >
+                    <SelectTrigger aria-label="დახარისხების პარამეტრები">
+                      <SelectValue placeholder="აირჩიეთ ვარიანტი" />
+                    </SelectTrigger>
+                    <SelectContent className="after:content-[''] after:block after:h-3">
+                      <SelectItem value="newest">უახლესი</SelectItem>
+                      <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
+                      <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
+                      <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
+                      <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button onClick={handleReset} variant="outline" className="w-full">
+                  ფილტრის გასუფთავება
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        )}
+        
+        <div className="flex-1">
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Product Images */}
+            <div className="w-full md:w-2/5">
+              {/* Main Image */}
+              <div 
+                className="relative aspect-square overflow-hidden rounded-md bg-white border cursor-pointer flex items-center justify-center max-h-[70vh]"
+                onClick={toggleImageZoom}
+              >
+                {/* ფასდაკლების Badge */}
+                {isPublicDiscount && (
+                  <div className="absolute top-4 right-4 z-10 bg-red-500 text-white px-2 py-1 rounded-md font-medium">
+                    {product.discountPercentage}% ფასდაკლება
+                  </div>
+                )}
+              
+                <Image
+                  src={currentImage}
+                  alt={product.name}
+                  fill={true}
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                  className="object-contain"
+                  priority
+                  loading="eager"
+                  placeholder="blur"
+                  blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                />
+                
+                {/* Image Navigation Arrows */}
+                {hasMultipleImages && (
+                  <>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); prevImage(); }} 
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-75 p-2 rounded-full shadow hover:bg-opacity-100 transition-all z-10"
+                      aria-label="წინა სურათი"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-75 p-2 rounded-full shadow hover:bg-opacity-100 transition-all z-10"
+                      aria-label="შემდეგი სურათი"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              {/* Thumbnail Gallery */}
+              {hasMultipleImages && (
+                <div className="mt-4 grid grid-cols-5 gap-2">
+                  {product.images.map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`aspect-square overflow-hidden rounded-md border ${
+                        index === currentImageIndex ? 'ring-2 ring-primary' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      aria-label={`პროდუქტის სურათი ${index + 1}`}
+                    >
+                      <Image
+                        src={image}
+                        alt={`${product.name} - thumbnail ${index + 1}`}
+                        width={100}
+                        height={100}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            
+              {/* Full Screen Image Modal */}
+              {isImageZoomed && (
+                <div 
+                  className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+                  onClick={toggleImageZoom}
+                >
+                  <button 
+                    className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2"
+                    onClick={toggleImageZoom}
+                    aria-label="დახურვა"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                  <Image
+                    src={currentImage}
+                    alt={product.name}
+                    width={1200}
+                    height={1200}
+                    className="max-h-screen max-w-full object-contain p-4"
+                  />
+                  {hasMultipleImages && (
+                    <>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); prevImage(); }} 
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full"
+                        aria-label="წინა სურათი"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full"
+                        aria-label="შემდეგი სურათი"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
+                    </>
                   )}
                 </div>
-                <h3 className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors">{relatedProduct.name}</h3>
-                <p className="text-sm font-semibold text-gray-900">₾{relatedProduct.price?.toFixed(2)}</p>
-              </Link>
-            ))}
+              )}
+            </div>
+            
+            {/* Product Details */}
+            <div className="w-full md:w-3/5">
+              <div className="mb-6">
+                <div className="mt-4 mb-6">
+                  {isPublicDiscount ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-2xl font-bold">{discountedPrice.toFixed(2)} ₾</p>
+                      <p className="text-lg text-muted-foreground line-through">{product.price} ₾</p>
+                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-md text-sm font-medium">
+                        {product.discountPercentage}% ფასდაკლება
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-2xl font-bold">{product.price} ₾</p>
+                  )}
+                </div>
+                
+                {/* Add to Cart Section */}
+                <div className="flex items-center gap-4 my-8">
+                  <div className="flex items-center border rounded-md">
+                    <button 
+                      onClick={() => handleQuantityChange(-1)}
+                      className="px-3 py-2 hover:bg-slate-100"
+                      aria-label="შემცირება"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="px-4 py-2 font-medium">{quantity}</span>
+                    <button 
+                      onClick={() => handleQuantityChange(1)}
+                      className="px-3 py-2 hover:bg-slate-100"
+                      aria-label="გაზრდა"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Button onClick={handleAddToCart} className="flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    <span>კალათში დამატება</span>
+                  </Button>
+                </div>
+                
+                {/* Product Description */}
+                <div className="mt-6">
+                  <Tabs defaultValue="description">
+                    <TabsList>
+                      <TabsTrigger value="description">აღწერა</TabsTrigger>
+                      {(product as any).specifications && <TabsTrigger value="specifications">სპეციფიკაციები</TabsTrigger>}
+                    </TabsList>
+                    <TabsContent value="description" className="mt-4">
+                      <div className="prose max-w-none">
+                        <p>{product.description}</p>
+                      </div>
+                    </TabsContent>
+                    {(product as any).specifications && (
+                      <TabsContent value="specifications" className="mt-4">
+                        <div className="prose max-w-none">
+                          <ul>
+                            {Object.entries((product as any).specifications).map(([key, value]) => (
+                              <li key={key}>
+                                <strong>{key}:</strong> {String(value)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </TabsContent>
+                    )}
+                  </Tabs>
+                </div>
+              </div>
+            </div>
           </div>
+          
+          {/* Related Products Section */}
+          {relatedProducts.length > 0 && (
+            <div className="mt-16">
+              <h2 className="text-2xl font-bold tracking-tight mb-6">მსგავსი პროდუქტები</h2>
+              {filteredAndSortedRelatedProducts.length === 0 ? (
+                <div className="text-center py-12">
+                  <h2 className="text-xl font-medium mb-2">მსგავსი პროდუქტები ვერ მოიძებნა</h2>
+                  <p className="text-muted-foreground">
+                    ვერ მოიძებნა მსგავსი პროდუქტი თქვენი პარამეტრებით.
+                    შეცვალეთ ფილტრაციის პარამეტრები ან გაასუფთავეთ ფილტრი.
+                  </p>
+                  <Button 
+                    className="mt-4"
+                    onClick={handleReset}
+                    variant="outline"
+                  >
+                    ფილტრის გასუფთავება
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredAndSortedRelatedProducts.map((relatedProduct) => (
+                    <Link href={`/shop/product/${relatedProduct.id}`} key={relatedProduct.id} 
+                      onClick={() => window.scrollTo(0, 0)}
+                      className="group flex flex-col h-full border rounded-md overflow-hidden hover:shadow-md transition-shadow duration-300"
+                    >
+                      <div className="relative aspect-square overflow-hidden bg-gray-100">
+                        <Image
+                          src={relatedProduct.images && relatedProduct.images.length > 0 
+                            ? relatedProduct.images[0] 
+                            : defaultImage}
+                          alt={relatedProduct.name}
+                          fill={true}
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-col flex-grow p-4">
+                        <h3 className="font-medium text-lg mb-1">{relatedProduct.name}</h3>
+                        <p className="text-muted-foreground text-sm line-clamp-2 mb-2">{relatedProduct.description}</p>
+                        <div className="mt-auto">
+                          <span className="font-bold">{relatedProduct.price} ₾</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Dynamically import the Zoomed Image Modal */}
-      {isImageZoomed && <ZoomedImageModal 
-        currentImage={currentImage} 
-        productName={product.name} 
-        hasMultipleImages={hasMultipleImages} 
-        onClose={toggleImageZoom} 
-        onPrev={prevImage} 
-        onNext={nextImage} 
-      />}
+      </div>
     </ShopLayout>
   );
 }
