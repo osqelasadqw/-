@@ -169,6 +169,24 @@ export default function ProductDetailPage() {
     setIsImageZoomed(!isImageZoomed);
   };
 
+  // ფოტოს მოდალის კლავიატურით მართვა
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isImageZoomed) return;
+      
+      if (e.key === 'ArrowLeft') {
+        prevImage();
+      } else if (e.key === 'ArrowRight') {
+        nextImage();
+      } else if (e.key === 'Escape') {
+        setIsImageZoomed(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImageZoomed, currentImageIndex]);
+
   // Filter functions
   const handlePriceChange = (value: number[]) => {
     setPriceRange([value[0], value[1]]);
@@ -543,40 +561,89 @@ export default function ProductDetailPage() {
               {/* Full Screen Image Modal */}
               {isImageZoomed && (
                 <div 
-                  className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+                  className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center"
                   onClick={toggleImageZoom}
                 >
                   <button 
-                    className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2"
+                    className="absolute top-4 right-4 text-gray-800 bg-white shadow-lg rounded-full p-2 z-10"
                     onClick={toggleImageZoom}
                     aria-label="დახურვა"
                   >
                     <X className="h-6 w-6" />
                   </button>
-                  <Image
-                    src={currentImage}
-                    alt={product.name}
-                    width={1200}
-                    height={1200}
-                    className="max-h-screen max-w-full object-contain p-4"
-                  />
+
+                  <div className="flex flex-row items-center justify-center space-x-5 max-w-[95vw] max-h-[90vh]">
+                    {/* ვერტიკალური თამბნეილები მარცხნივ - მხოლოდ დესკტოპზე */}
+                    {hasMultipleImages && (
+                      <div className="hidden md:flex h-full items-center self-center z-10">
+                        <div className="flex flex-col gap-3 my-auto max-h-[80vh] overflow-y-auto py-2 pr-2">
+                          {product.images.map((image, index) => (
+                            <button
+                              key={index}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentImageIndex(index);
+                              }}
+                              className={`w-28 h-28 overflow-hidden flex-shrink-0 ${
+                                index === currentImageIndex 
+                                ? 'border-[3px] border-primary shadow-md' 
+                                : 'border border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <Image
+                                src={image}
+                                alt={`${product.name} - thumbnail ${index + 1}`}
+                                width={112}
+                                height={112}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* მთავარი ფოტო კონტეინერი */}
+                    <div className="relative flex items-center justify-center">
+                      <Image
+                        src={currentImage}
+                        alt={product.name}
+                        width={1200}
+                        height={1200}
+                        className="max-h-[80vh] max-w-[78vw] md:max-w-[60vw] object-contain"
+                      />
+                      
+                      {/* ნავიგაციის ღილაკები ფოტოზე */}
+                      {hasMultipleImages && (
+                        <>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); prevImage(); }} 
+                            className="absolute -left-4 top-1/2 -translate-y-1/2 bg-white/95 shadow-lg text-gray-800 p-2.5 md:p-3.5 rounded-full flex items-center justify-center hover:bg-white transition-all z-10"
+                            aria-label="წინა სურათი"
+                          >
+                            <ChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                            className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white/95 shadow-lg text-gray-800 p-2.5 md:p-3.5 rounded-full flex items-center justify-center hover:bg-white transition-all z-10"
+                            aria-label="შემდეგი სურათი"
+                          >
+                            <ChevronRight className="h-6 w-6 md:h-7 md:w-7" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ფოტოს ნომერი/ინდიკატორი */}
                   {hasMultipleImages && (
-                    <>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); prevImage(); }} 
-                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full"
-                        aria-label="წინა სურათი"
-                      >
-                        <ChevronLeft className="h-6 w-6" />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full"
-                        aria-label="შემდეგი სურათი"
-                      >
-                        <ChevronRight className="h-6 w-6" />
-                      </button>
-                    </>
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 z-10">
+                      <span className="hidden md:inline text-xs text-gray-300">
+                        <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">←</kbd>
+                        <kbd className="px-1.5 py-0.5 bg-gray-800 rounded ml-1">→</kbd>
+                      </span>
+                      <span>{currentImageIndex + 1} / {product.images.length}</span>
+                    </div>
                   )}
                 </div>
               )}
