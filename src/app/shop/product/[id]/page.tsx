@@ -342,11 +342,11 @@ export default function ProductDetailPage() {
   // Default image if no images are available
   const defaultImage = useMemo(() => 'https://placehold.co/600x600/eee/999?text=No+Image', []);
   const hasMultipleImages = useMemo(() => product.images && product.images.length > 1, [product.images]);
-  const currentImage = useMemo(() => 
-    product.images && product.images.length > 0 
+  const currentImage = useMemo(() => {
+    return product.images && product.images.length > 0 
       ? product.images[currentImageIndex] 
-      : defaultImage
-  , [product.images, currentImageIndex, defaultImage]);
+      : defaultImage;
+  }, [product.images, currentImageIndex, defaultImage]);
 
   return (
     <ShopLayout>
