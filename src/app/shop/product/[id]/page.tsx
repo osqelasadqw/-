@@ -62,132 +62,17 @@ export default function ProductDetailPage() {
   const [userModifiedRange, setUserModifiedRange] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
 
-  const fetchProduct = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      if (typeof id !== 'string') return;
-      
-      const productData = await getProductById(id as string);
-      if (!productData) {
-        setError('პროდუქტი ვერ მოიძებნა');
-        return;
-      }
-      
-      setProduct(productData);
-      
-      // მხოლოდ საჯარო ფასდაკლების შემოწმება
-      const hasPublicDiscount = productData.promoActive && 
-        productData.hasPublicDiscount && 
-        productData.discountPercentage;
-        
-      setIsPublicDiscount(!!hasPublicDiscount);
-      
-      if (hasPublicDiscount && productData.discountPercentage) {
-        setDiscountedPrice(productData.price * (1 - (productData.discountPercentage / 100)));
-      }
-      
-      // After fetching the product, fetch related products from the same category
-      if (productData?.categoryId) {
-        fetchRelatedProducts(productData.categoryId, productData.id);
-      }
-    } catch (error) {
-      console.error('Error fetching product:', error);
-    } finally {
-      setIsLoading(false);
+  // Define all memoized values and callbacks at the top level, before any conditional logic
+  const defaultImage = useMemo(() => 'https://placehold.co/600x600/eee/999?text=No+Image', []);
+  const hasMultipleImages = useMemo(() => product?.images && product.images.length > 1, [product?.images]);
+  const currentImage = useMemo(() => {
+    if (!product?.images || product.images.length === 0) {
+      return defaultImage;
     }
-  }, [id]);
+    return product.images[currentImageIndex];
+  }, [product?.images, currentImageIndex, defaultImage]);
 
-  useEffect(() => {
-    fetchProduct();
-  }, [fetchProduct]);
-
-  const fetchRelatedProducts = useCallback(async (categoryId: string, currentProductId: string) => {
-    try {
-      const products = await getProductsByCategory(categoryId);
-      // Filter out the current product
-      const otherProducts = products.filter(p => p.id !== currentProductId);
-      setRelatedProducts(otherProducts);
-      
-      // Set min and max price for the filter
-      if (otherProducts.length > 0) {
-        const prices = otherProducts.map(p => p.price || 0);
-        const calculatedMinMax: [number, number] = [
-          Math.floor(Math.min(...prices)), 
-          Math.ceil(Math.max(...prices))
-        ];
-        setMinMaxPrice(calculatedMinMax);
-        setPriceRange(calculatedMinMax);
-      }
-    } catch (error) {
-      console.error('Error fetching related products:', error);
-    }
-  }, []);
-
-  const handleQuantityChange = useCallback((delta: number) => {
-    setQuantity(prev => Math.max(1, prev + delta));
-  }, []);
-
-  const handleAddToCart = useCallback(() => {
-    if (product) {
-      // თუ აქვს საჯარო ფასდაკლება, ვქმნით პროდუქტის ასლს შეცვლილი ფასით
-      if (isPublicDiscount) {
-        const discountedProduct = {
-          ...product,
-          originalPrice: product.price, // ორიგინალი ფასის შენახვა
-          price: discountedPrice // დროებით შეცვლა ფასის კალათში, რომ იყოს ფასდაკლებით
-        };
-        
-        for (let i = 0; i < quantity; i++) {
-          addToCart(discountedProduct);
-        }
-      } else {
-        // თუ არ აქვს ფასდაკლება, ჩვეულებრივად ვამატებთ
-        for (let i = 0; i < quantity; i++) {
-          addToCart(product);
-        }
-      }
-    }
-  }, [product, isPublicDiscount, discountedPrice, quantity, addToCart]);
-
-  const nextImage = useCallback(() => {
-    if (product?.images && product.images.length > 0) {
-      setCurrentImageIndex((prev) => 
-        prev === product.images.length - 1 ? 0 : prev + 1
-      );
-    }
-  }, [product?.images]);
-
-  const prevImage = useCallback(() => {
-    if (product?.images && product.images.length > 0) {
-      setCurrentImageIndex((prev) => 
-        prev === 0 ? product.images.length - 1 : prev - 1
-      );
-    }
-  }, [product?.images]);
-
-  const toggleImageZoom = useCallback(() => {
-    setIsImageZoomed(!isImageZoomed);
-  }, [isImageZoomed]);
-
-  // ფოტოს მოდალის კლავიატურით მართვა
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isImageZoomed) return;
-      
-      if (e.key === 'ArrowLeft') {
-        prevImage();
-      } else if (e.key === 'ArrowRight') {
-        nextImage();
-      } else if (e.key === 'Escape') {
-        setIsImageZoomed(false);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isImageZoomed, prevImage, nextImage]);
-
-  // Filter functions
+  // Declare all callbacks at the top before any conditional returns
   const handleReset = useCallback(() => {
     setPriceRange([minMaxPrice[0], minMaxPrice[1]]);
     setUserModifiedRange(false);
@@ -214,7 +99,6 @@ export default function ProductDetailPage() {
     }
   }, [minMaxPrice, priceRange]);
 
-  // მემოიზირებული ინტერფეისის კომპონენტები
   const PriceRangeInputs = useCallback(({isMobile}: {isMobile: boolean}) => {
     const idPrefix = isMobile ? 'mobile' : 'desktop';
     return (
@@ -276,6 +160,52 @@ export default function ProductDetailPage() {
     );
   }, [relatedSortOption]);
 
+  const toggleImageZoom = useCallback(() => {
+    setIsImageZoomed(!isImageZoomed);
+  }, [isImageZoomed]);
+
+  const nextImage = useCallback(() => {
+    if (product?.images && product.images.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev === product.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  }, [product?.images]);
+
+  const prevImage = useCallback(() => {
+    if (product?.images && product.images.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? product.images.length - 1 : prev - 1
+      );
+    }
+  }, [product?.images]);
+
+  const handleQuantityChange = useCallback((delta: number) => {
+    setQuantity(prev => Math.max(1, prev + delta));
+  }, []);
+
+  const handleAddToCart = useCallback(() => {
+    if (product) {
+      // თუ აქვს საჯარო ფასდაკლება, ვქმნით პროდუქტის ასლს შეცვლილი ფასით
+      if (isPublicDiscount) {
+        const discountedProduct = {
+          ...product,
+          originalPrice: product.price, // ორიგინალი ფასის შენახვა
+          price: discountedPrice // დროებით შეცვლა ფასის კალათში, რომ იყოს ფასდაკლებით
+        };
+        
+        for (let i = 0; i < quantity; i++) {
+          addToCart(discountedProduct);
+        }
+      } else {
+        // თუ არ აქვს ფასდაკლება, ჩვეულებრივად ვამატებთ
+        for (let i = 0; i < quantity; i++) {
+          addToCart(product);
+        }
+      }
+    }
+  }, [product, isPublicDiscount, discountedPrice, quantity, addToCart]);
+
   // Memoized filtered and sorted related products for performance
   const filteredAndSortedRelatedProducts = useMemo(() => {
     // First filter by price
@@ -286,29 +216,105 @@ export default function ProductDetailPage() {
       );
     });
     
-    // Then sort
+    // Clone the filtered array (always do this, never conditionally)
     const sorted = [...filtered];
-    switch (relatedSortOption) {
-      case 'price-asc':
-        sorted.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-        break;
-      case 'price-desc':
-        sorted.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-        break;
-      case 'name-asc':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case 'name-desc':
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      case 'newest': // No sorting for newest (default)
-      default:
-        // Don't return here, just use the filtered array
-        break;
+    
+    // Apply sorting based on option
+    if (relatedSortOption === 'price-asc') {
+      sorted.sort((a: Product, b: Product) => (a.price ?? 0) - (b.price ?? 0));
+    } else if (relatedSortOption === 'price-desc') {
+      sorted.sort((a: Product, b: Product) => (b.price ?? 0) - (a.price ?? 0));
+    } else if (relatedSortOption === 'name-asc') {
+      sorted.sort((a: Product, b: Product) => a.name.localeCompare(b.name));
+    } else if (relatedSortOption === 'name-desc') {
+      sorted.sort((a: Product, b: Product) => b.name.localeCompare(a.name));
     }
+    // For 'newest' or default, we don't sort
+
+    // Always return sorted array, never have multiple return paths
     return sorted;
   }, [relatedProducts, relatedSortOption, priceRange, userModifiedRange]);
 
+  const fetchProduct = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      if (typeof id !== 'string') return;
+      
+      const productData = await getProductById(id as string);
+      if (!productData) {
+        setError('პროდუქტი ვერ მოიძებნა');
+        return;
+      }
+      
+      setProduct(productData);
+      
+      // მხოლოდ საჯარო ფასდაკლების შემოწმება
+      const hasPublicDiscount = productData.promoActive && 
+        productData.hasPublicDiscount && 
+        productData.discountPercentage;
+        
+      setIsPublicDiscount(!!hasPublicDiscount);
+      
+      if (hasPublicDiscount && productData.discountPercentage) {
+        setDiscountedPrice(productData.price * (1 - (productData.discountPercentage / 100)));
+      }
+      
+      // After fetching the product, fetch related products from the same category
+      if (productData?.categoryId) {
+        fetchRelatedProducts(productData.categoryId, productData.id);
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  const fetchRelatedProducts = useCallback(async (categoryId: string, currentProductId: string) => {
+    try {
+      const products = await getProductsByCategory(categoryId);
+      // Filter out the current product
+      const otherProducts = products.filter(p => p.id !== currentProductId);
+      setRelatedProducts(otherProducts);
+      
+      // Set min and max price for the filter
+      if (otherProducts.length > 0) {
+        const prices = otherProducts.map(p => p.price || 0);
+        const calculatedMinMax: [number, number] = [
+          Math.floor(Math.min(...prices)), 
+          Math.ceil(Math.max(...prices))
+        ];
+        setMinMaxPrice(calculatedMinMax);
+        setPriceRange(calculatedMinMax);
+      }
+    } catch (error) {
+      console.error('Error fetching related products:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
+
+  // ფოტოს მოდალის კლავიატურით მართვა
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isImageZoomed) return;
+      
+      if (e.key === 'ArrowLeft') {
+        prevImage();
+      } else if (e.key === 'ArrowRight') {
+        nextImage();
+      } else if (e.key === 'Escape') {
+        setIsImageZoomed(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImageZoomed, prevImage, nextImage]);
+
+  // Now we can have conditional returns since all hooks are defined
   if (isLoading) {
     return (
       <ShopLayout>
@@ -339,16 +345,6 @@ export default function ProductDetailPage() {
       </ShopLayout>
     );
   }
-
-  // Default image if no images are available
-  const defaultImage = useMemo(() => 'https://placehold.co/600x600/eee/999?text=No+Image', []);
-  const hasMultipleImages = useMemo(() => product?.images && product.images.length > 1, [product?.images]);
-  const currentImage = useMemo(() => {
-    if (!product?.images || product.images.length === 0) {
-      return defaultImage;
-    }
-    return product.images[currentImageIndex];
-  }, [product?.images, currentImageIndex, defaultImage]);
 
   return (
     <ShopLayout>
