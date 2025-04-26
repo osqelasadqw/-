@@ -2,7 +2,21 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### Environment Variables
+
+Before starting the application, you need to set up environment variables:
+
+1. Copy the `.env.example` file to a new file named `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+2. Fill in the `.env.local` file with your Firebase credentials.
+
+### Development Server
+
+Run the development server:
 
 ```bash
 npm run dev

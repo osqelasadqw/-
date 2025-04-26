@@ -5,13 +5,13 @@ import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC8_agAkfNw0k4pILG5C54cjiR-X3HpLJE",
-  authDomain: "onlyne-376bc.firebaseapp.com",
-  projectId: "onlyne-376bc",
-  storageBucket: "onlyne-376bc.firebasestorage.app",
-  messagingSenderId: "1059993029295",
-  appId: "1:1059993029295:web:5fcb32ee126f7ffab6a25a",
-  measurementId: "G-GBF2QY347B"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

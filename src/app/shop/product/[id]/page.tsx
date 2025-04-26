@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ShopLayout } from '@/components/layouts/shop-layout';
 import { getProductById, getProductsByCategory } from '@/lib/firebase-service';
@@ -62,46 +62,46 @@ export default function ProductDetailPage() {
   const [userModifiedRange, setUserModifiedRange] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setIsLoading(true);
-        if (typeof id !== 'string') return;
-        
-        const productData = await getProductById(id as string);
-        if (!productData) {
-          setError('პროდუქტი ვერ მოიძებნა');
-          return;
-        }
-        
-        setProduct(productData);
-        
-        // მხოლოდ საჯარო ფასდაკლების შემოწმება
-        const hasPublicDiscount = productData.promoActive && 
-          productData.hasPublicDiscount && 
-          productData.discountPercentage;
-          
-        setIsPublicDiscount(!!hasPublicDiscount);
-        
-        if (hasPublicDiscount && productData.discountPercentage) {
-          setDiscountedPrice(productData.price * (1 - (productData.discountPercentage / 100)));
-        }
-        
-        // After fetching the product, fetch related products from the same category
-        if (productData?.categoryId) {
-          fetchRelatedProducts(productData.categoryId, productData.id);
-        }
-      } catch (error) {
-        console.error('Error fetching product:', error);
-      } finally {
-        setIsLoading(false);
+  const fetchProduct = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      if (typeof id !== 'string') return;
+      
+      const productData = await getProductById(id as string);
+      if (!productData) {
+        setError('პროდუქტი ვერ მოიძებნა');
+        return;
       }
-    };
-
-    fetchProduct();
+      
+      setProduct(productData);
+      
+      // მხოლოდ საჯარო ფასდაკლების შემოწმება
+      const hasPublicDiscount = productData.promoActive && 
+        productData.hasPublicDiscount && 
+        productData.discountPercentage;
+        
+      setIsPublicDiscount(!!hasPublicDiscount);
+      
+      if (hasPublicDiscount && productData.discountPercentage) {
+        setDiscountedPrice(productData.price * (1 - (productData.discountPercentage / 100)));
+      }
+      
+      // After fetching the product, fetch related products from the same category
+      if (productData?.categoryId) {
+        fetchRelatedProducts(productData.categoryId, productData.id);
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [id]);
 
-  const fetchRelatedProducts = async (categoryId: string, currentProductId: string) => {
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
+
+  const fetchRelatedProducts = useCallback(async (categoryId: string, currentProductId: string) => {
     try {
       const products = await getProductsByCategory(categoryId);
       // Filter out the current product
@@ -116,18 +116,18 @@ export default function ProductDetailPage() {
           Math.ceil(Math.max(...prices))
         ];
         setMinMaxPrice(calculatedMinMax);
-        setPriceRange([calculatedMinMax[0], calculatedMinMax[1]]);
+        setPriceRange(calculatedMinMax);
       }
     } catch (error) {
       console.error('Error fetching related products:', error);
     }
-  };
+  }, []);
 
-  const handleQuantityChange = (delta: number) => {
+  const handleQuantityChange = useCallback((delta: number) => {
     setQuantity(prev => Math.max(1, prev + delta));
-  };
+  }, []);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = useCallback(() => {
     if (product) {
       // თუ აქვს საჯარო ფასდაკლება, ვქმნით პროდუქტის ასლს შეცვლილი ფასით
       if (isPublicDiscount) {
@@ -147,27 +147,27 @@ export default function ProductDetailPage() {
         }
       }
     }
-  };
+  }, [product, isPublicDiscount, discountedPrice, quantity, addToCart]);
 
-  const nextImage = () => {
+  const nextImage = useCallback(() => {
     if (product?.images && product.images.length > 0) {
       setCurrentImageIndex((prev) => 
         prev === product.images.length - 1 ? 0 : prev + 1
       );
     }
-  };
+  }, [product]);
 
-  const prevImage = () => {
+  const prevImage = useCallback(() => {
     if (product?.images && product.images.length > 0) {
       setCurrentImageIndex((prev) => 
         prev === 0 ? product.images.length - 1 : prev - 1
       );
     }
-  };
+  }, [product]);
 
-  const toggleImageZoom = () => {
+  const toggleImageZoom = useCallback(() => {
     setIsImageZoomed(!isImageZoomed);
-  };
+  }, [isImageZoomed]);
 
   // ფოტოს მოდალის კლავიატურით მართვა
   useEffect(() => {
@@ -185,42 +185,99 @@ export default function ProductDetailPage() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isImageZoomed, currentImageIndex]);
+  }, [isImageZoomed, prevImage, nextImage]);
 
   // Filter functions
-  const handlePriceChange = (value: number[]) => {
-    setPriceRange([value[0], value[1]]);
-    setUserModifiedRange(true);
-  };
-
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setPriceRange([minMaxPrice[0], minMaxPrice[1]]);
     setUserModifiedRange(false);
     setRelatedSortOption('newest');
-  };
+  }, [minMaxPrice]);
 
-  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMinPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newMinPrice = Number(e.target.value);
     if (isNaN(newMinPrice) || newMinPrice < minMaxPrice[0]) return;
     
     if (newMinPrice <= priceRange[1]) {
-      setPriceRange([newMinPrice, priceRange[1]]);
+      setPriceRange(prev => [newMinPrice, prev[1]]);
       setUserModifiedRange(true);
     }
-  };
+  }, [minMaxPrice, priceRange]);
 
-  const handleMaxPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMaxPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newMaxPrice = Number(e.target.value);
     if (isNaN(newMaxPrice) || newMaxPrice > minMaxPrice[1]) return;
     
     if (newMaxPrice >= priceRange[0]) {
-      setPriceRange([priceRange[0], newMaxPrice]);
+      setPriceRange(prev => [prev[0], newMaxPrice]);
       setUserModifiedRange(true);
     }
-  };
+  }, [minMaxPrice, priceRange]);
+
+  // მემოიზირებული ინტერფეისის კომპონენტები
+  const PriceRangeInputs = useCallback(({isMobile}: {isMobile: boolean}) => {
+    const idPrefix = isMobile ? 'mobile' : 'desktop';
+    return (
+      <div className="space-y-4">
+        <h2 className="font-medium text-sm">ფასი</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center">
+            <Label htmlFor={`min-price-${idPrefix}`} className="mb-1 text-xs">მინიმალური</Label>
+            <input
+              id={`min-price-${idPrefix}`}
+              type="number"
+              className="border rounded-md px-2 py-1 w-24 text-center"
+              min={minMaxPrice[0]}
+              max={priceRange[1]}
+              value={priceRange[0]}
+              onChange={handleMinPriceChange}
+            />
+          </div>
+          <div className="flex items-center justify-center">
+            <span className="text-gray-400 mx-2">-</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <Label htmlFor={`max-price-${idPrefix}`} className="mb-1 text-xs">მაქსიმალური</Label>
+            <input
+              id={`max-price-${idPrefix}`}
+              type="number"
+              className="border rounded-md px-2 py-1 w-24 text-center"
+              min={priceRange[0]}
+              max={minMaxPrice[1]}
+              value={priceRange[1]}
+              onChange={handleMaxPriceChange}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }, [minMaxPrice, priceRange, handleMinPriceChange, handleMaxPriceChange]);
+
+  const SortSelector = useCallback(() => {
+    return (
+      <div className="space-y-4">
+        <h2 className="font-medium text-sm">დახარისხება</h2>
+        <Select
+          value={relatedSortOption}
+          onValueChange={(value) => setRelatedSortOption(value as SortOption)}
+        >
+          <SelectTrigger aria-label="დახარისხების პარამეტრები">
+            <SelectValue placeholder="აირჩიეთ ვარიანტი" />
+          </SelectTrigger>
+          <SelectContent className="after:content-[''] after:block after:h-3">
+            <SelectItem value="newest">უახლესი</SelectItem>
+            <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
+            <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
+            <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
+            <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }, [relatedSortOption]);
 
   // Memoized filtered and sorted related products for performance
-  const filteredAndSortedRelatedProducts = React.useMemo(() => {
+  const filteredAndSortedRelatedProducts = useMemo(() => {
     // First filter by price
     const filtered = relatedProducts.filter(product => {
       return !userModifiedRange || (
@@ -283,11 +340,13 @@ export default function ProductDetailPage() {
   }
 
   // Default image if no images are available
-  const defaultImage = 'https://placehold.co/600x600/eee/999?text=No+Image';
-  const hasMultipleImages = product.images && product.images.length > 1;
-  const currentImage = product.images && product.images.length > 0 
-    ? product.images[currentImageIndex] 
-    : defaultImage;
+  const defaultImage = useMemo(() => 'https://placehold.co/600x600/eee/999?text=No+Image', []);
+  const hasMultipleImages = useMemo(() => product.images && product.images.length > 1, [product.images]);
+  const currentImage = useMemo(() => 
+    product.images && product.images.length > 0 
+      ? product.images[currentImageIndex] 
+      : defaultImage
+  , [product.images, currentImageIndex, defaultImage]);
 
   return (
     <ShopLayout>
@@ -323,65 +382,8 @@ export default function ProductDetailPage() {
                 </SheetDescription>
               </SheetHeader>
               <div className="space-y-6 py-4">
-                <div className="space-y-4">
-                  <h2 className="font-medium text-sm">ფასი</h2>
-                  <div className="pt-2 px-2">
-                    <Slider
-                      defaultValue={[minMaxPrice[0], minMaxPrice[1]]}
-                      min={minMaxPrice[0]}
-                      max={minMaxPrice[1]}
-                      step={1}
-                      value={[priceRange[0], priceRange[1]]}
-                      onValueChange={handlePriceChange}
-                      className="mb-3"
-                    />
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col items-center">
-                        <Label htmlFor="min-price-mobile" className="sr-only">მინიმალური ფასი</Label>
-                        <input
-                          id="min-price-mobile"
-                          type="number"
-                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                          min={minMaxPrice[0]}
-                          max={priceRange[1]}
-                          value={priceRange[0]}
-                          onChange={handleMinPriceChange}
-                        />
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <Label htmlFor="max-price-mobile" className="sr-only">მაქსიმალური ფასი</Label>
-                        <input
-                          id="max-price-mobile"
-                          type="number"
-                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                          min={priceRange[0]}
-                          max={minMaxPrice[1]}
-                          value={priceRange[1]}
-                          onChange={handleMaxPriceChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h2 className="font-medium text-sm">დახარისხება</h2>
-                  <Select
-                    value={relatedSortOption}
-                    onValueChange={(value) => setRelatedSortOption(value as SortOption)}
-                  >
-                    <SelectTrigger aria-label="დახარისხების პარამეტრები">
-                      <SelectValue placeholder="აირჩიეთ ვარიანტი" />
-                    </SelectTrigger>
-                    <SelectContent className="after:content-[''] after:block after:h-3">
-                      <SelectItem value="newest">უახლესი</SelectItem>
-                      <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
-                      <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
-                      <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
-                      <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <PriceRangeInputs isMobile={true} />
+                <SortSelector />
               </div>
               <div className="pt-4">
                 <Button onClick={handleReset} variant="outline" className="w-full">
@@ -416,65 +418,8 @@ export default function ProductDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <h2 className="font-medium text-sm">ფასი</h2>
-                  <div className="pt-4 px-2">
-                    <Slider
-                      defaultValue={[minMaxPrice[0], minMaxPrice[1]]}
-                      min={minMaxPrice[0]}
-                      max={minMaxPrice[1]}
-                      step={1}
-                      value={[priceRange[0], priceRange[1]]}
-                      onValueChange={handlePriceChange}
-                      className="mb-3"
-                    />
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col items-center">
-                        <Label htmlFor="min-price-desktop" className="sr-only">მინიმალური ფასი</Label>
-                        <input
-                          id="min-price-desktop"
-                          type="number"
-                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                          min={minMaxPrice[0]}
-                          max={priceRange[1]}
-                          value={priceRange[0]}
-                          onChange={handleMinPriceChange}
-                        />
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <Label htmlFor="max-price-desktop" className="sr-only">მაქსიმალური ფასი</Label>
-                        <input
-                          id="max-price-desktop"
-                          type="number"
-                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                          min={priceRange[0]}
-                          max={minMaxPrice[1]}
-                          value={priceRange[1]}
-                          onChange={handleMaxPriceChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h2 className="font-medium text-sm">დახარისხება</h2>
-                  <Select
-                    value={relatedSortOption}
-                    onValueChange={(value) => setRelatedSortOption(value as SortOption)}
-                  >
-                    <SelectTrigger aria-label="დახარისხების პარამეტრები">
-                      <SelectValue placeholder="აირჩიეთ ვარიანტი" />
-                    </SelectTrigger>
-                    <SelectContent className="after:content-[''] after:block after:h-3">
-                      <SelectItem value="newest">უახლესი</SelectItem>
-                      <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
-                      <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
-                      <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
-                      <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <PriceRangeInputs isMobile={false} />
+                <SortSelector />
               </CardContent>
               <CardFooter>
                 <Button onClick={handleReset} variant="outline" className="w-full">
@@ -552,6 +497,9 @@ export default function ProductDetailPage() {
                         width={100}
                         height={100}
                         className="h-full w-full object-cover"
+                        loading={index < 5 ? "eager" : "lazy"}
+                        placeholder="blur"
+                        blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
                       />
                     </button>
                   ))}
@@ -596,6 +544,9 @@ export default function ProductDetailPage() {
                                 width={112}
                                 height={112}
                                 className="w-full h-full object-cover"
+                                loading="lazy"
+                                placeholder="blur"
+                                blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
                               />
                             </button>
                           ))}
@@ -611,6 +562,9 @@ export default function ProductDetailPage() {
                         width={1200}
                         height={1200}
                         className="max-h-[80vh] max-w-[78vw] md:max-w-[60vw] object-contain"
+                        loading="eager"
+                        placeholder="blur"
+                        blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
                       />
                       
                       {/* ნავიგაციის ღილაკები ფოტოზე */}
@@ -757,6 +711,9 @@ export default function ProductDetailPage() {
                           fill={true}
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="object-cover"
+                          loading="lazy"
+                          placeholder="blur"
+                          blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
                         />
                       </div>
                       <div className="flex flex-col flex-grow p-4">
@@ -816,6 +773,10 @@ const ZoomedImageModal = dynamic(() => Promise.resolve(({
             width={1200}
             height={1200}
             style={{ objectFit: 'contain' }}
+            priority={false}
+            loading="lazy"
+            placeholder="blur"
+            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
           />
         </div>
         
@@ -840,4 +801,4 @@ const ZoomedImageModal = dynamic(() => Promise.resolve(({
       </div>
     </div>
   )
-}), { ssr: false }); 
+}), { ssr: false, loading: () => <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"><div className="bg-white p-4 rounded-md">სურათი იტვირთება...</div></div> }); 

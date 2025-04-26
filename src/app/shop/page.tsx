@@ -87,12 +87,21 @@ export default function ShopPage() {
   
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
   const [minMaxPrice, setMinMaxPrice] = useState<[number, number]>([0, 1000]);
-  const [sortOption, setSortOption] = useState<SortOption>('newest');
   const [userModifiedRange, setUserModifiedRange] = useState(false);
+  const [sortOption, setSortOption] = useState<SortOption>('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
 
   const { addToCart } = useCart();
+
+  const calculateInitialPriceRange = useCallback((productsData: Product[]) => {
+    let calculatedMinMax: [number, number] = [0, 1000];
+    if (productsData.length > 0) {
+      const prices = productsData.map(p => p.price || 0);
+      calculatedMinMax = [Math.floor(Math.min(...prices)), Math.ceil(Math.max(...prices))];
+    }
+    return calculatedMinMax;
+  }, []);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -114,13 +123,10 @@ export default function ShopPage() {
         
         setProducts(productsData);
         
-        let calculatedMinMax: [number, number] = [0, 1000];
-        if (productsData.length > 0) {
-          const prices = productsData.map(p => p.price || 0);
-          calculatedMinMax = [Math.floor(Math.min(...prices)), Math.ceil(Math.max(...prices))];
-        }
+        const calculatedMinMax = calculateInitialPriceRange(productsData);
         setInitialMinMaxPrice(calculatedMinMax);
         setMinMaxPrice(calculatedMinMax);
+        setPriceRange(calculatedMinMax);
       } catch (error) {
         console.error('Error fetching initial products:', error);
       } finally {
@@ -128,71 +134,131 @@ export default function ShopPage() {
       }
     };
     fetchInitialData();
-  }, [categoryId]);
+  }, [categoryId, calculateInitialPriceRange]);
 
-  const allFilteredProducts = products
-    .filter(product => {
-      const priceCondition = userModifiedRange 
-        ? (product.price >= priceRange[0] && product.price <= priceRange[1])
-        : true;
-        
-      return (product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       product.description.toLowerCase().includes(searchTerm.toLowerCase())) &&
-       priceCondition;
-    })
-    .sort((a, b) => {
-      switch (sortOption) {
-        case 'newest':
-          return (b.createdAt || 0) - (a.createdAt || 0);
-        case 'oldest':
-          return (a.createdAt || 0) - (b.createdAt || 0);
-        case 'price-asc':
-          return (a.price || 0) - (b.price || 0);
-        case 'price-desc':
-          return (b.price || 0) - (a.price || 0);
-        default:
-          return 0;
-      }
-    });
+  const allFilteredProducts = useMemo(() => {
+    return products
+      .filter(product => {
+        const priceCondition = userModifiedRange 
+          ? (product.price >= priceRange[0] && product.price <= priceRange[1])
+          : true;
+          
+        return (product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         product.description.toLowerCase().includes(searchTerm.toLowerCase())) &&
+         priceCondition;
+      })
+      .sort((a, b) => {
+        switch (sortOption) {
+          case 'newest':
+            return (b.createdAt || 0) - (a.createdAt || 0);
+          case 'oldest':
+            return (a.createdAt || 0) - (b.createdAt || 0);
+          case 'price-asc':
+            return (a.price || 0) - (b.price || 0);
+          case 'price-desc':
+            return (b.price || 0) - (a.price || 0);
+          default:
+            return 0;
+        }
+      });
+  }, [products, searchTerm, priceRange, userModifiedRange, sortOption]);
     
-  const specialProducts = allFilteredProducts.filter(product => Boolean((product as any).isSpecial));
+  const specialProducts = useMemo(() => {
+    return allFilteredProducts.filter(product => Boolean((product as any).isSpecial));
+  }, [allFilteredProducts]);
   
-  const filteredProducts = allFilteredProducts.filter(product => !Boolean((product as any).isSpecial));
+  const filteredProducts = useMemo(() => {
+    return allFilteredProducts.filter(product => !Boolean((product as any).isSpecial));
+  }, [allFilteredProducts]);
   
-  const allProductsForSmallScreens = [...allFilteredProducts];
+  const allProductsForSmallScreens = useMemo(() => [...allFilteredProducts], [allFilteredProducts]);
 
-  const handlePriceChange = (value: number[]) => {
-    setPriceRange([value[0], value[1]]);
-    setUserModifiedRange(true);
-  };
-
-  const handleReset = () => {
-    setPriceRange([0, 0]);
+  const handleReset = useCallback(() => {
+    setPriceRange([minMaxPrice[0], minMaxPrice[1]]);
     setUserModifiedRange(false);
-    setMinMaxPrice(initialMinMaxPrice);
     setSortOption('newest');
     setSearchTerm('');
-  };
+  }, [minMaxPrice]);
 
-  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMinPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newMinPrice = Number(e.target.value);
     if (isNaN(newMinPrice) || newMinPrice < minMaxPrice[0]) return;
     
     if (newMinPrice <= priceRange[1]) {
-      setPriceRange([newMinPrice, priceRange[1]]);
+      setPriceRange(prev => [newMinPrice, prev[1]]);
       setUserModifiedRange(true);
     }
-  };
+  }, [minMaxPrice, priceRange]);
 
-  const handleMaxPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMaxPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newMaxPrice = Number(e.target.value);
     if (isNaN(newMaxPrice) || newMaxPrice > minMaxPrice[1]) return;
     
     if (newMaxPrice >= priceRange[0]) {
-      setPriceRange([priceRange[0], newMaxPrice]);
+      setPriceRange(prev => [prev[0], newMaxPrice]);
       setUserModifiedRange(true);
     }
-  };
+  }, [minMaxPrice, priceRange]);
+
+  const PriceRangeInputs = useCallback(({isMobile}: {isMobile: boolean}) => {
+    const idPrefix = isMobile ? 'mobile' : 'desktop';
+    return (
+      <div className="space-y-4">
+        <h2 className="font-medium text-sm">ფასი</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center">
+            <Label htmlFor={`min-price-${idPrefix}`} className="mb-1 text-xs">მინიმალური</Label>
+            <input
+              id={`min-price-${idPrefix}`}
+              type="number"
+              className="border rounded-md px-2 py-1 w-24 text-center"
+              min={minMaxPrice[0]}
+              max={priceRange[1]}
+              value={priceRange[0]}
+              onChange={handleMinPriceChange}
+            />
+          </div>
+          <div className="flex items-center justify-center">
+            <span className="text-gray-400 mx-2">-</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <Label htmlFor={`max-price-${idPrefix}`} className="mb-1 text-xs">მაქსიმალური</Label>
+            <input
+              id={`max-price-${idPrefix}`}
+              type="number"
+              className="border rounded-md px-2 py-1 w-24 text-center"
+              min={priceRange[0]}
+              max={minMaxPrice[1]}
+              value={priceRange[1]}
+              onChange={handleMaxPriceChange}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }, [minMaxPrice, priceRange, handleMinPriceChange, handleMaxPriceChange]);
+
+  const SortSelector = useCallback(() => {
+    return (
+      <div className="space-y-4">
+        <h2 className="font-medium text-sm">დახარისხება</h2>
+        <Select
+          value={sortOption}
+          onValueChange={(value) => setSortOption(value as SortOption)}
+        >
+          <SelectTrigger aria-label="დახარისხების პარამეტრები">
+            <SelectValue placeholder="აირჩიეთ ვარიანტი" />
+          </SelectTrigger>
+          <SelectContent className="after:content-[''] after:block after:h-3">
+            <SelectItem value="newest">უახლესი</SelectItem>
+            <SelectItem value="oldest">უძველესი</SelectItem>
+            <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
+            <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }, [sortOption]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
 
@@ -242,64 +308,8 @@ export default function ShopPage() {
                   </SheetDescription>
                 </SheetHeader>
                 <div className="space-y-6 py-4">
-                  <div className="space-y-4">
-                    <h2 className="font-medium text-sm">ფასი</h2>
-                    <div className="pt-2 px-2">
-                      <Slider
-                        defaultValue={[0, minMaxPrice[1]]}
-                        min={minMaxPrice[0]}
-                        max={minMaxPrice[1]}
-                        step={1}
-                        value={userModifiedRange ? [priceRange[0], priceRange[1]] : [0, 0]}
-                        onValueChange={handlePriceChange}
-                        className="mb-3"
-                      />
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col items-center">
-                          <Label htmlFor="min-price-mobile" className="sr-only">მინიმალური ფასი</Label>
-                          <input
-                            id="min-price-mobile"
-                            type="number"
-                            className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                            min={minMaxPrice[0]}
-                            max={priceRange[1]}
-                            value={priceRange[0]}
-                            onChange={handleMinPriceChange}
-                          />
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <Label htmlFor="max-price-mobile" className="sr-only">მაქსიმალური ფასი</Label>
-                          <input
-                            id="max-price-mobile"
-                            type="number"
-                            className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                            min={priceRange[0]}
-                            max={minMaxPrice[1]}
-                            value={userModifiedRange ? priceRange[1] : 0}
-                            onChange={handleMaxPriceChange}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <h2 className="font-medium text-sm">დახარისხება</h2>
-                    <Select
-                      value={sortOption}
-                      onValueChange={(value) => setSortOption(value as SortOption)}
-                    >
-                      <SelectTrigger aria-label="დახარისხების პარამეტრები">
-                        <SelectValue placeholder="აირჩიეთ ვარიანტი" />
-                      </SelectTrigger>
-                      <SelectContent className="after:content-[''] after:block after:h-3">
-                        <SelectItem value="newest">უახლესი</SelectItem>
-                        <SelectItem value="oldest">უძველესი</SelectItem>
-                        <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
-                        <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <PriceRangeInputs isMobile={true} />
+                  <SortSelector />
                 </div>
                 <div className="pt-4">
                   <Button onClick={handleReset} variant="outline" className="w-full">
@@ -334,64 +344,8 @@ export default function ShopPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <h2 className="font-medium text-sm">ფასი</h2>
-                  <div className="pt-4 px-2">
-                    <Slider
-                      defaultValue={[0, minMaxPrice[1]]}
-                      min={minMaxPrice[0]}
-                      max={minMaxPrice[1]}
-                      step={1}
-                      value={userModifiedRange ? [priceRange[0], priceRange[1]] : [0, 0]}
-                      onValueChange={handlePriceChange}
-                      className="mb-3"
-                    />
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col items-center">
-                        <Label htmlFor="min-price-desktop" className="sr-only">მინიმალური ფასი</Label>
-                        <input
-                          id="min-price-desktop"
-                          type="number"
-                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                          min={minMaxPrice[0]}
-                          max={priceRange[1]}
-                          value={priceRange[0]}
-                          onChange={handleMinPriceChange}
-                        />
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <Label htmlFor="max-price-desktop" className="sr-only">მაქსიმალური ფასი</Label>
-                        <input
-                          id="max-price-desktop"
-                          type="number"
-                          className="border rounded-md px-1 py-0.5 w-12 text-center text-[10px] xs:text-xs sm:text-sm sm:w-16 sm:px-2 sm:py-1"
-                          min={priceRange[0]}
-                          max={minMaxPrice[1]}
-                          value={userModifiedRange ? priceRange[1] : 0}
-                          onChange={handleMaxPriceChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h2 className="font-medium text-sm">დახარისხება</h2>
-                  <Select
-                    value={sortOption}
-                    onValueChange={(value) => setSortOption(value as SortOption)}
-                  >
-                    <SelectTrigger aria-label="დახარისხების პარამეტრები">
-                      <SelectValue placeholder="აირჩიეთ ვარიანტი" />
-                    </SelectTrigger>
-                    <SelectContent className="after:content-[''] after:block after:h-3">
-                      <SelectItem value="newest">უახლესი</SelectItem>
-                      <SelectItem value="oldest">უძველესი</SelectItem>
-                      <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
-                      <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <PriceRangeInputs isMobile={false} />
+                <SortSelector />
               </CardContent>
               <CardFooter>
                 <Button onClick={handleReset} variant="outline" className="w-full">
@@ -546,7 +500,7 @@ export default function ShopPage() {
                                         priority={index === 0}
                                         placeholder="blur"
                                         blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                                        className="transition-transform duration-300 group-hover:scale-105"
+                                        className="object-cover w-full h-full"
                                       />
                                     </div>
                                     
