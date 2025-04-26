@@ -6,12 +6,18 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
   
   // Remove noindex directive and add proper SEO headers
-  response.headers.set('x-robots-tag', 'index, follow');
+  response.headers.set('x-robots-tag', 'index, follow, max-image-preview:large');
   
-  // Add other performance related headers
+  // Add performance and caching headers for better SEO scores
   response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   response.headers.set('X-Content-Type-Options', 'nosniff');
+  
+  // Response headers for security
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  
+  // Content security policy to improve security score
+  response.headers.set('X-Frame-Options', 'DENY');
   
   return response;
 }

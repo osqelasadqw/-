@@ -155,7 +155,7 @@ export default function ProductDetailPage() {
         prev === product.images.length - 1 ? 0 : prev + 1
       );
     }
-  }, [product]);
+  }, [product?.images]);
 
   const prevImage = useCallback(() => {
     if (product?.images && product.images.length > 0) {
@@ -163,7 +163,7 @@ export default function ProductDetailPage() {
         prev === 0 ? product.images.length - 1 : prev - 1
       );
     }
-  }, [product]);
+  }, [product?.images]);
 
   const toggleImageZoom = useCallback(() => {
     setIsImageZoomed(!isImageZoomed);
@@ -303,7 +303,8 @@ export default function ProductDetailPage() {
         break;
       case 'newest': // No sorting for newest (default)
       default:
-        return filtered; // Avoid creating new array if no sort needed
+        // Don't return here, just use the filtered array
+        break;
     }
     return sorted;
   }, [relatedProducts, relatedSortOption, priceRange, userModifiedRange]);
@@ -341,12 +342,13 @@ export default function ProductDetailPage() {
 
   // Default image if no images are available
   const defaultImage = useMemo(() => 'https://placehold.co/600x600/eee/999?text=No+Image', []);
-  const hasMultipleImages = useMemo(() => product.images && product.images.length > 1, [product.images]);
+  const hasMultipleImages = useMemo(() => product?.images && product.images.length > 1, [product?.images]);
   const currentImage = useMemo(() => {
-    return product.images && product.images.length > 0 
-      ? product.images[currentImageIndex] 
-      : defaultImage;
-  }, [product.images, currentImageIndex, defaultImage]);
+    if (!product?.images || product.images.length === 0) {
+      return defaultImage;
+    }
+    return product.images[currentImageIndex];
+  }, [product?.images, currentImageIndex, defaultImage]);
 
   return (
     <ShopLayout>
