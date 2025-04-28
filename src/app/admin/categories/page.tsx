@@ -21,6 +21,61 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 
+// ლამაზი სქროლბარის კლასი
+const customScrollbarStyles = `
+  /* ზოგიერთი კონტეინერისთვის სქროლბარი ჩანდეს მხოლოდ ჰოვერისას */
+  .custom-scrollbar.hover-show::-webkit-scrollbar-thumb {
+    opacity: 0;
+  }
+  
+  .custom-scrollbar.hover-show:hover::-webkit-scrollbar-thumb {
+    opacity: 1;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(241, 241, 241, 0.1);
+    border-radius: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(103, 103, 245, 0.4);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    opacity: 0.7;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(103, 103, 245, 0.7);
+    opacity: 1;
+  }
+  
+  /* სქროლბარის კუთხე */
+  .custom-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  
+  /* Firefox სქროლბარი */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(103, 103, 245, 0.4) transparent;
+  }
+  
+  /* ანიმაცია */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    animation: fadeIn 0.5s ease;
+  }
+`;
+
 type DragItemType = {
   id: string;
   type: string;
@@ -108,7 +163,7 @@ const CategoryDropZone = ({ category, pendingImages }: {
         </div>
       ) : (
         <div className="mt-1">
-          <div className="grid grid-cols-4 2xl:grid-cols-5 gap-1">
+          <div className="grid grid-cols-4 2xl:grid-cols-5 gap-1 p-1">
             {pendingImages.map((img) => (
               <div 
                 key={img.id} 
@@ -185,6 +240,87 @@ export default function AdminCategories() {
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
 
+  // ფუნქცია კატეგორიიდან ფოტოს წასაშლელად და კატეგორიის გარეშე განყოფილებაში გადასატანად
+  const handleRemoveFromCategory = (imageData: DragItemType) => {
+    try {
+      
+      // მოვძებნოთ პროდუქტის ID რომელსაც ეს სურათი ეკუთვნის
+      let foundProductId = '';
+      products.forEach(product => {
+        if (product.images && product.images.includes(imageData.image)) {
+          foundProductId = product.id;
+        }
+      });
+      
+      if (!foundProductId) {
+        console.error("ვერ მოიძებნა პროდუქტის ID");
+        return;
+      }
+      
+      
+      // წავშალოთ სურათი ყველა კატეგორიიდან
+      setCategoryImages(prev => {
+        const newCategoryImages = { ...prev };
+        
+        // წავშალოთ ყველა კატეგორიიდან
+        Object.keys(newCategoryImages).forEach(catId => {
+          if (newCategoryImages[catId]) {
+            newCategoryImages[catId] = newCategoryImages[catId].filter(img => 
+              img.id !== imageData.id && img.image !== imageData.image
+            );
+          }
+        });
+        
+        return newCategoryImages;
+      });
+      
+      // დავამატოთ ფოტო allImages სიაში
+      setAllImages(prev => [
+        ...prev,
+        {
+          id: imageData.id,
+          image: imageData.image,
+          productId: foundProductId
+        }
+      ]);
+      
+      // დავამატოთ ცვლილება, რომ პროდუქტს წავუშალოთ კატეგორია
+      setPendingChanges(prevChanges => {
+        // წავშალოთ ნებისმიერი არსებული ცვლილება ამ პროდუქტისთვის
+        const filteredChanges = prevChanges.filter(change => change.productId !== foundProductId);
+        // დავამატოთ ახალი ცვლილება - categoryId: undefined
+        return [
+          ...filteredChanges, 
+          { 
+            imageId: imageData.id, 
+            productId: foundProductId, 
+            categoryId: undefined  // undefined კატეგორია ნიშნავს კატეგორიის წაშლას
+          }
+        ];
+      });
+      
+      setUpdateMessage({
+        type: 'success',
+        text: 'ფოტო გამოტანილია კატეგორიიდან'
+      });
+      
+      setTimeout(() => {
+        setUpdateMessage(null);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error removing from category:', error);
+      setUpdateMessage({
+        type: 'error',
+        text: 'შეცდომა ფოტოს კატეგორიიდან გამოტანისას'
+      });
+      
+      setTimeout(() => {
+        setUpdateMessage(null);
+      }, 3000);
+    }
+  };
+
   // Sensors
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -213,11 +349,11 @@ export default function AdminCategories() {
       // თუ სურათს ვაგდებთ "uncategorized" ზონაში, განსხვავებული ლოგიკა გამოვიყენოთ
       if (targetId === "uncategorized") {
         if (imageData.productId === "category-move") {
-          // console.log("ფოტო გადაგვაქვს კატეგორიიდან კატეგორიის გარეშე განყოფილებაში");
+          console.log("კატეგორიიდან ფოტოს გადაწევა uncategorized-ში", imageData);
           handleRemoveFromCategory(imageData);
         } else {
+          console.log("ფოტო უკვე uncategorized-შია, არაფერს ვაკეთებთ", imageData);
           // თუ ფოტო უკვე კატეგორიის გარეშეა, არაფერი გავაკეთოთ
-          // console.log("ფოტო უკვე კატეგორიის გარეშეა");
         }
         return;
       }
@@ -235,12 +371,15 @@ export default function AdminCategories() {
         
         // თუ წყარო და სამიზნე კატეგორიები ერთი და იგივეა, გამოვიდეთ ფუნქციიდან
         if (sourceCategory === targetId) {
-          // console.log("ფოტო იგივე კატეგორიაში გადავიტანეთ, ცვლილება არ კეთდება");
+          console.log("ფოტო იგივე კატეგორიაში გადავიტანეთ, ცვლილება არ კეთდება", imageData, targetId);
           return;
         }
+        
+        console.log("ფოტოს გადატანა ერთი კატეგორიიდან მეორეში", imageData, sourceCategory, targetId);
+      } else {
+        console.log("ფოტოს გადატანა uncategorized-დან კატეგორიაში", imageData, targetId);
       }
       
-      // console.log(`ვტარებთ ფოტოს კატეგორიაში: ${targetId}`);
       handleImageDrop(imageData, targetId);
     }
   };
@@ -506,6 +645,41 @@ export default function AdminCategories() {
         setAllImages(prevImages => 
           prevImages.filter(img => (img.id !== targetImageId && img.image !== targetImageUrl))
         );
+      } else {
+        // ეს არის დამატებული ლოგიკა, როდესაც ფოტო მოდის კატეგორიის გარედან (uncategorized)
+        
+        // მოვძებნოთ პროდუქტის ID (უკვე მოცემულია imageData.productId-ში)
+        const productId = imageData.productId;
+        
+        // მოვძებნოთ პროდუქტი, რომ ვიცოდეთ მისი ორიგინალი categoryId
+        const product = products.find(p => p.id === productId);
+        
+        if (product) {
+          // თუ ფოტო უკვე ამ კატეგორიის პროდუქტს ეკუთვნის, ცვლილება არ დაგვჭირდება
+          if (product.categoryId === categoryId) {
+            return;
+          }
+          
+          // დავამატოთ ცვლილება pending changes-ში
+          setPendingChanges(prevChanges => {
+            // წავშალოთ ნებისმიერი არსებული ცვლილება ამ პროდუქტისთვის
+            const filteredChanges = prevChanges.filter(change => change.productId !== productId);
+            // დავამატოთ ახალი ცვლილება
+            return [
+              ...filteredChanges, 
+              { 
+                imageId: targetImageId, 
+                productId: productId, 
+                categoryId 
+              }
+            ];
+          });
+          
+          // წავშალოთ სურათი allImages-დან
+          setAllImages(prevImages => 
+            prevImages.filter(img => (img.id !== targetImageId && img.image !== targetImageUrl))
+          );
+        }
       }
       
       // განვახორციელოთ UI-ს განახლება კატეგორიებში
@@ -561,87 +735,6 @@ export default function AdminCategories() {
       });
       
       // Clear error message after 3 seconds
-      setTimeout(() => {
-        setUpdateMessage(null);
-      }, 3000);
-    }
-  };
-
-  // ახალი ფუნქცია კატეგორიიდან ფოტოს წასაშლელად და კატეგორიის გარეშე განყოფილებაში გადასატანად
-  const handleRemoveFromCategory = (imageData: DragItemType) => {
-    try {
-      
-      // მოვძებნოთ პროდუქტის ID რომელსაც ეს სურათი ეკუთვნის
-      let foundProductId = '';
-      products.forEach(product => {
-        if (product.images && product.images.includes(imageData.image)) {
-          foundProductId = product.id;
-        }
-      });
-      
-      if (!foundProductId) {
-        console.error("ვერ მოიძებნა პროდუქტის ID");
-        return;
-      }
-      
-      
-      // წავშალოთ სურათი ყველა კატეგორიიდან
-      setCategoryImages(prev => {
-        const newCategoryImages = { ...prev };
-        
-        // წავშალოთ ყველა კატეგორიიდან
-        Object.keys(newCategoryImages).forEach(catId => {
-          if (newCategoryImages[catId]) {
-            newCategoryImages[catId] = newCategoryImages[catId].filter(img => 
-              img.id !== imageData.id && img.image !== imageData.image
-            );
-          }
-        });
-        
-        return newCategoryImages;
-      });
-      
-      // დავამატოთ ფოტო allImages სიაში
-      setAllImages(prev => [
-        ...prev,
-        {
-          id: imageData.id,
-          image: imageData.image,
-          productId: foundProductId
-        }
-      ]);
-      
-      // დავამატოთ ცვლილება, რომ პროდუქტს წავუშალოთ კატეგორია
-      setPendingChanges(prevChanges => {
-        // წავშალოთ ნებისმიერი არსებული ცვლილება ამ პროდუქტისთვის
-        const filteredChanges = prevChanges.filter(change => change.productId !== foundProductId);
-        // დავამატოთ ახალი ცვლილება - categoryId: undefined
-        return [
-          ...filteredChanges, 
-          { 
-            imageId: imageData.id, 
-            productId: foundProductId, 
-            categoryId: undefined  // undefined კატეგორია ნიშნავს კატეგორიის წაშლას
-          }
-        ];
-      });
-      
-      setUpdateMessage({
-        type: 'success',
-        text: 'ფოტო გამოტანილია კატეგორიიდან'
-      });
-      
-      setTimeout(() => {
-        setUpdateMessage(null);
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Error removing from category:', error);
-      setUpdateMessage({
-        type: 'error',
-        text: 'შეცდომა ფოტოს კატეგორიიდან გამოტანისას'
-      });
-      
       setTimeout(() => {
         setUpdateMessage(null);
       }, 3000);
@@ -774,14 +867,16 @@ export default function AdminCategories() {
 
   return (
     <AdminLayout>
+      <style dangerouslySetInnerHTML={{ __html: customScrollbarStyles }} />
+      
       {isDistributionModalOpen ? (
         <DndContext 
           sensors={sensors} 
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <div className="h-full w-full flex flex-col">
-            <div className="flex justify-between items-center border-b p-4 bg-white shadow-sm">
+          <div className="flex flex-col h-[calc(100vh-90px)] max-h-[calc(100vh-90px)] overflow-auto custom-scrollbar hover-show">
+            <div className="flex justify-between items-center border-b p-4 bg-white shadow-sm sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <Button 
                   variant="outline" 
@@ -820,16 +915,16 @@ export default function AdminCategories() {
             </div>
               
             {updateMessage && (
-              <div className={`p-3 mx-4 mt-2 rounded ${
+              <div className={`p-3 mx-4 mt-2 rounded sticky top-[76px] z-10 ${
                 updateMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
               }`}>
                 {updateMessage.text}
               </div>
             )}
 
-            <div className="flex flex-col md:flex-row gap-4 p-4 overflow-auto h-full">
+            <div className="flex flex-col md:flex-row gap-4 p-4 overflow-auto flex-1 min-h-0">
               {/* Images Section */}
-              <div className="w-full md:w-1/2 flex flex-col h-full">
+              <div className="w-full md:w-1/2 flex flex-col min-h-0 max-h-full">
                 <div className="flex flex-col gap-2 mb-3 bg-white p-3 rounded-lg shadow-sm">
                   <div className="flex items-center gap-2">
                     <ImageIcon className="h-5 w-5 text-primary" />
@@ -870,7 +965,7 @@ export default function AdminCategories() {
                   </div>
                 </div>
                 
-                <div className="border rounded-lg overflow-y-auto flex-1 p-4 bg-gray-50 shadow-inner">
+                <div className="border rounded-lg overflow-y-auto flex-1 p-4 bg-gray-50 shadow-inner min-h-0 custom-scrollbar hover-show">
                   {/* დავამატოთ drop ზონა კატეგორიიდან გამოსატანად */}
                   {/* ეს ზონა მხოლოდ მაშინ აისახება, როდესაც ფოტოები არსებობს კატეგორიებში */}
                   {Object.values(categoryImages).some(images => images.length > 0) && (
@@ -898,7 +993,7 @@ export default function AdminCategories() {
               </div>
               
               {/* Categories Section */}
-              <div className="w-full md:w-1/2 flex flex-col h-full">
+              <div className="w-full md:w-1/2 flex flex-col min-h-0 max-h-full">
                 <div className="flex flex-col gap-2 mb-3 bg-white p-3 rounded-lg shadow-sm">
                   <div className="flex items-center gap-2">
                     <Grid className="h-5 w-5 text-primary" />
@@ -944,7 +1039,7 @@ export default function AdminCategories() {
                   </div>
                 </div>
                 
-                <div className="border rounded-lg overflow-y-auto flex-1 p-4 bg-gray-50 shadow-inner">
+                <div className="border rounded-lg overflow-y-auto flex-1 p-4 bg-gray-50 shadow-inner min-h-0 custom-scrollbar hover-show">
                   <div className="space-y-4">
                     {filteredCategories.length === 0 ? (
                       <div className="py-8 text-center text-muted-foreground">
@@ -1046,7 +1141,7 @@ export default function AdminCategories() {
                 </Button>
               </div>
             ) : (
-              <ul className="divide-y">
+              <ul className="divide-y max-h-[70vh] overflow-y-auto custom-scrollbar hover-show">
                 {categories.map((category) => (
                   <li key={category.id} className="p-4 hover:bg-gray-50">
                     {editingId === category.id ? (
