@@ -386,7 +386,6 @@ export default function ShopPage() {
           ) : (
             <div className="space-y-8">
               <div>
-                <h2 className="text-xl font-bold mb-4">ყველა პროდუქტი</h2>
                 
                 <div className="relative group">
                   <style jsx>{`

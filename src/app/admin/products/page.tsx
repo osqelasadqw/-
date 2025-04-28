@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { getProducts, getCategories, deleteProduct, markProductAsSpecial } from '@/lib/firebase-service';
 import { Category, Product } from '@/types';
-import { Plus, Edit, Trash2, Search, Star, StarOff, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Star, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -277,27 +277,19 @@ export default function AdminProducts() {
                         <div className="text-gray-500">{getCategoryName(product.categoryId ?? '')}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleToggleSpecial(product.id, Boolean((product as any).isSpecial))}
-                          disabled={isTogglingSpecial === product.id}
-                          title={Boolean((product as any).isSpecial) ? "სპეციალური პროდუქტებიდან მოხსნა" : "სპეციალურ პროდუქტებში დამატება"}
-                        >
+                        <div className="flex">
                           {isTogglingSpecial === product.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (product as any).isSpecial ? (
-                            <>
-                              <Star className="h-4 w-4 mr-1" />
-                              სპეციალური
-                            </>
+                            <Loader2 className="h-5 w-5 animate-spin" />
                           ) : (
-                            <>
-                              <StarOff className="h-4 w-4 mr-1" />
-                              ჩვეულებრივი
-                            </>
+                            <button 
+                              onClick={() => handleToggleSpecial(product.id, Boolean((product as any).isSpecial))}
+                              className="focus:outline-none"
+                              title={Boolean((product as any).isSpecial) ? "სპეციალური პროდუქტებიდან მოხსნა" : "სპეციალურ პროდუქტებში დამატება"}
+                            >
+                              <Star className={`h-6 w-6 ${(product as any).isSpecial ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} transition-colors duration-200 hover:text-yellow-400`} />
+                            </button>
                           )}
-                        </Button>
+                        </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
@@ -352,7 +344,7 @@ export default function AdminProducts() {
         <div className="bg-blue-50 border border-blue-200 rounded p-4 mt-6">
           <div className="flex items-start">
             <div className="mr-3 mt-1">
-              <Star className="h-5 w-5 text-amber-500" />
+              <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
             </div>
             <div>
               <h3 className="font-medium">სპეციალური პროდუქტები: {specialProductCount}/4</h3>
