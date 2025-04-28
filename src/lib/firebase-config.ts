@@ -24,14 +24,38 @@ let analytics: any;
 
 if (typeof window !== 'undefined') {
   try {
+    console.log("Firebase ინიციალიზაცია...");
+    
+    // წინასწარი შემოწმება
+    if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+      console.error("Firebase კონფიგურაცია არასრულია! შეამოწმეთ გარემოს ცვლადები:", { 
+        apiKey: !!firebaseConfig.apiKey, 
+        authDomain: !!firebaseConfig.authDomain, 
+        projectId: !!firebaseConfig.projectId 
+      });
+    }
+    
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
     analytics = getAnalytics(app);
     googleProvider = new GoogleAuthProvider();
-  } catch (error) {
-    console.error("Firebase initialization error:", error);
+    
+    // პარამეტრების კონფიგურაცია
+    googleProvider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    
+    console.log("Firebase ინიციალიზაცია წარმატებულია");
+  } catch (error: any) {
+    console.error("Firebase ინიციალიზაციის შეცდომა:", error);
+    console.error("შეცდომის დეტალები:", error.message);
+    console.error("შეცდომის კოდი:", error.code);
+    
+    if (error.stack) {
+      console.error("Stack trace:", error.stack);
+    }
   }
 }
 
