@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -27,6 +27,116 @@ interface SiteSettings {
   aboutUsContent?: string;
 }
 
+// ცალკე კომპონენტი, რომელიც იყენებს useSearchParams
+function SearchSection({ 
+  searchTerm, 
+  setSearchTerm, 
+  showSearchResults, 
+  setShowSearchResults, 
+  handleSearchSubmit 
+}: { 
+  searchTerm: string; 
+  setSearchTerm: (term: string) => void; 
+  showSearchResults: boolean; 
+  setShowSearchResults: (show: boolean) => void; 
+  handleSearchSubmit: (e: React.FormEvent) => void; 
+}) {
+  const searchParams = useSearchParams();
+
+  // ჩატვირთვისას დავაყენოთ searchTerm URL-დან
+  useEffect(() => {
+    const query = searchParams?.get('search') || '';
+    setSearchTerm(query);
+  }, [searchParams, setSearchTerm]);
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    
+    // თუ საკმარისი სიმბოლოებია, ავტომატურად გახსნას შედეგები
+    if (value.trim().length >= 2) {
+      setShowSearchResults(true);
+    } else if (value.trim().length === 0) {
+      setShowSearchResults(false);
+    }
+  };
+
+  const handleSearchFocus = () => {
+    if (searchTerm.trim().length >= 2) {
+      setShowSearchResults(true);
+    }
+  };
+
+  const handleCloseSearch = () => {
+    setShowSearchResults(false);
+  };
+
+  return (
+    <div className="relative w-full max-w-lg">
+      <form onSubmit={handleSearchSubmit} className="flex items-center w-full">
+        <div className="relative flex-grow">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="პროდუქტის ძიება..."
+            className="pl-9 w-full"
+            value={searchTerm}
+            onChange={handleSearchInputChange}
+            onFocus={handleSearchFocus}
+          />
+        </div>
+      </form>
+      <SearchResults 
+        searchTerm={searchTerm} 
+        onClose={handleCloseSearch} 
+        isOpen={showSearchResults}
+      />
+    </div>
+  );
+}
+
+// ცალკე კომპონენტი, რომელიც იყენებს useSearchParams - მობილური ვერსიისთვის
+function MobileSearchSection({ 
+  searchTerm, 
+  setSearchTerm, 
+  showSearchResults, 
+  setShowSearchResults 
+}: { 
+  searchTerm: string; 
+  setSearchTerm: (term: string) => void; 
+  showSearchResults: boolean; 
+  setShowSearchResults: (show: boolean) => void; 
+}) {
+  const searchParams = useSearchParams();
+
+  // ჩატვირთვისას დავაყენოთ searchTerm URL-დან
+  useEffect(() => {
+    const query = searchParams?.get('search') || '';
+    setSearchTerm(query);
+  }, [searchParams, setSearchTerm]);
+
+  return (
+    <div className="relative w-full">
+      <form className="flex items-center w-full">
+        <div className="relative flex-grow">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="პროდუქტის ძიება..."
+            className="pl-9 w-full py-1.5 text-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={() => setShowSearchResults(true)}
+          />
+        </div>
+      </form>
+      <SearchResults 
+        searchTerm={searchTerm} 
+        onClose={() => setShowSearchResults(false)} 
+        isOpen={showSearchResults}
+      />
+    </div>
+  );
+}
+
 export function ShopLayout({ children }: ShopLayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,13 +153,6 @@ export function ShopLayout({ children }: ShopLayoutProps) {
   
   const emailInputId = React.useId();
   const subscribeButtonId = React.useId();
-  const searchParams = useSearchParams();
-
-  // ჩატვირთვისას დავაყენოთ searchTerm URL-დან
-  useEffect(() => {
-    const query = searchParams?.get('search') || '';
-    setSearchTerm(query);
-  }, [searchParams]);
 
   const navItems = [
     { href: '/shop', label: 'მთავარი' },
@@ -118,28 +221,6 @@ export function ShopLayout({ children }: ShopLayoutProps) {
     await signOut();
   };
 
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    
-    // თუ საკმარისი სიმბოლოებია, ავტომატურად გახსნას შედეგები
-    if (value.trim().length >= 2) {
-      setShowSearchResults(true);
-    } else if (value.trim().length === 0) {
-      setShowSearchResults(false);
-    }
-  };
-
-  const handleSearchFocus = () => {
-    if (searchTerm.trim().length >= 2) {
-      setShowSearchResults(true);
-    }
-  };
-
-  const handleCloseSearch = () => {
-    setShowSearchResults(false);
-  };
-
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault(); 
     // Maybe navigate to a dedicated search page if needed?
@@ -167,25 +248,15 @@ export function ShopLayout({ children }: ShopLayoutProps) {
                   <CategoryDropdown />
                 </div>
                 
-                <div className="relative w-full max-w-lg">
-                  <form onSubmit={handleSearchSubmit} className="flex items-center w-full">
-                    <div className="relative flex-grow">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="პროდუქტის ძიება..."
-                        className="pl-9 w-full"
-                        value={searchTerm}
-                        onChange={handleSearchInputChange}
-                        onFocus={handleSearchFocus}
-                      />
-                    </div>
-                  </form>
-                  <SearchResults 
-                    searchTerm={searchTerm} 
-                    onClose={handleCloseSearch} 
-                    isOpen={showSearchResults}
+                <Suspense fallback={<div className="w-full max-w-lg h-10 bg-gray-100 animate-pulse rounded-md"></div>}>
+                  <SearchSection 
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    showSearchResults={showSearchResults}
+                    setShowSearchResults={setShowSearchResults}
+                    handleSearchSubmit={handleSearchSubmit}
                   />
-                </div>
+                </Suspense>
               </div>
               
               <div className="flex items-center space-x-4">
@@ -274,23 +345,14 @@ export function ShopLayout({ children }: ShopLayoutProps) {
             
             {/* მობილური საძიებო - ყოველთვის ჩანს */}
             <div className="mt-3 md:hidden">
-              <div className="relative">
-                <form onSubmit={handleSearchSubmit} className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="პროდუქტის ძიება..."
-                    className="pl-9 w-full py-1.5 text-sm"
-                    value={searchTerm}
-                    onChange={handleSearchInputChange}
-                    onFocus={handleSearchFocus}
-                  />
-                </form>
-                <SearchResults 
-                  searchTerm={searchTerm} 
-                  onClose={handleCloseSearch} 
-                  isOpen={showSearchResults}
+              <Suspense fallback={<div className="w-full h-8 bg-gray-100 animate-pulse rounded-md"></div>}>
+                <MobileSearchSection
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  showSearchResults={showSearchResults}
+                  setShowSearchResults={setShowSearchResults}
                 />
-              </div>
+              </Suspense>
             </div>
           </div>
         </div>
