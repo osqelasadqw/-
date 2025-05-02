@@ -123,14 +123,15 @@ const DraggableImage = ({ image, productId }: { image: string; productId: string
         transition: 'all 0.2s ease'
       }}
     >
-      <Image
-        src={image}
-        alt="პროდუქტის ფოტო"
-        width={isFromCategory ? 80 : 120}
-        height={isFromCategory ? 80 : 120}
-        className="h-full w-full object-contain"
-        onError={() => setImageError(true)}
-      />
+      <div className="relative w-full h-full">
+        <Image
+          src={image}
+          alt="პროდუქტის ფოტო"
+          fill
+          className="object-contain"
+          onError={() => setImageError(true)}
+        />
+      </div>
     </div>
   );
 };

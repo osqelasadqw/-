@@ -45,7 +45,7 @@ export function ProductCard({ product, loading = false, specialBadge = false, is
   return (
     <Link 
       href={`/shop/product/${product.id}`} 
-      className="block border rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all bg-white relative"
+      className="block border rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all bg-white relative h-full flex flex-col"
     >
       {/* სპეციალური შეთავაზების ბეჯი */}
       {specialBadge && (
@@ -61,24 +61,22 @@ export function ProductCard({ product, loading = false, specialBadge = false, is
         </Badge>
       )}
     
-      {/* Single container for image, text, and button */}
-      <div className="flex flex-col h-full">
-        {/* Image container */}
-        <div className="aspect-square flex items-center justify-center relative overflow-hidden">
-          {loading ? (
-            <div className="h-full w-full bg-gray-100 flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : (
+      {/* Image container with consistent aspect ratio */}
+      <div className="relative w-full aspect-square overflow-hidden">
+        {loading ? (
+          <div className="h-full w-full bg-gray-100 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="relative w-full h-full">
             <Image
-              src={product.images[0] || '/placeholder.png'}
+              src={productImage}
               alt={product.name}
-              width={200}
-              height={200}
-              className="h-full w-full object-cover"
+              fill
+              className="object-contain transition-transform duration-300 hover:scale-105"
               loading={isPriority ? "eager" : "lazy"}
               priority={isPriority}
-              sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
               placeholder="blur"
               blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
               onError={(e) => {
@@ -87,71 +85,71 @@ export function ProductCard({ product, loading = false, specialBadge = false, is
                 target.src = '/placeholder.png';
               }}
             />
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* Content container (name, price, button) */}
-        <div className="p-0.5 xs:p-1 sm:p-2 md:p-3 flex flex-col flex-grow text-[0.6rem] xs:text-xs sm:text-sm md:text-base">
-          {loading ? (
-            <div className="space-y-2">
-              <div className="h-3 bg-gray-100 rounded w-3/4"></div>
-              <div className="h-3 bg-gray-100 rounded w-1/2"></div>
-              <div className="flex justify-between items-center mt-1">
-                <div className="h-3 bg-gray-100 rounded w-12"></div>
-                <div className="h-5 w-5 bg-gray-100 rounded-md"></div>
-              </div>
+      {/* Content container (name, price, button) */}
+      <div className="p-0.5 xs:p-1 sm:p-2 md:p-3 flex flex-col flex-grow text-[0.6rem] xs:text-xs sm:text-sm md:text-base">
+        {loading ? (
+          <div className="space-y-2">
+            <div className="h-3 bg-gray-100 rounded w-3/4"></div>
+            <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+            <div className="flex justify-between items-center mt-1">
+              <div className="h-3 bg-gray-100 rounded w-12"></div>
+              <div className="h-5 w-5 bg-gray-100 rounded-md"></div>
             </div>
-          ) : (
-            <>
-              <h3 className="font-medium text-[0.6rem] xs:text-xs sm:text-sm md:text-base mb-0 xs:mb-0.5 line-clamp-1 flex-grow truncate">{product.name}</h3>
-              
-              <div className="flex justify-between items-center mt-0.5 xs:mt-1 sm:mt-2">
-                <div className="min-w-0 max-w-[60%]">
-                  {/* თუ არის საჯარო ფასდაკლება, ვაჩვენოთ ორივე ფასი */}
-                  {hasActiveDiscount ? (
-                    <div className="flex flex-col">
-                      <p className="text-[0.55rem] xs:text-[0.6rem] sm:text-xs line-through text-muted-foreground truncate">
-                        {new Intl.NumberFormat('ka-GE', {
-                          style: 'currency',
-                          currency: 'GEL',
-                          maximumFractionDigits: 0
-                        }).format(product.price)}
-                      </p>
-                      {discountedPrice !== null && (
-                        <p className="text-[0.55rem] xs:text-[0.6rem] sm:text-xs md:text-sm font-semibold text-destructive truncate">
-                          {new Intl.NumberFormat('ka-GE', {
-                            style: 'currency',
-                            currency: 'GEL',
-                            maximumFractionDigits: 0
-                          }).format(discountedPrice)}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-[0.55rem] xs:text-[0.6rem] sm:text-xs md:text-sm font-semibold text-gray-900 truncate">
+          </div>
+        ) : (
+          <>
+            <h3 className="font-medium text-[0.6rem] xs:text-xs sm:text-sm md:text-base mb-0 xs:mb-0.5 line-clamp-1 flex-grow truncate">{product.name}</h3>
+            
+            <div className="flex justify-between items-center mt-0.5 xs:mt-1 sm:mt-2">
+              <div className="min-w-0 max-w-[60%]">
+                {/* თუ არის საჯარო ფასდაკლება, ვაჩვენოთ ორივე ფასი */}
+                {hasActiveDiscount ? (
+                  <div className="flex flex-col">
+                    <p className="text-[0.55rem] xs:text-[0.6rem] sm:text-xs line-through text-muted-foreground truncate">
                       {new Intl.NumberFormat('ka-GE', {
                         style: 'currency',
                         currency: 'GEL',
                         maximumFractionDigits: 0
                       }).format(product.price)}
                     </p>
-                  )}
-                </div>
-                
-                <Button 
-                  size="sm" 
-                  variant="default" 
-                  className="flex items-center gap-0.5 xs:gap-1 rounded-md whitespace-nowrap text-[0.55rem] xs:text-[0.6rem] sm:text-xs md:text-sm h-5 xs:h-6 sm:h-7 md:h-8 min-w-5 xs:min-w-6 sm:min-w-0 px-0.5 xs:px-1 sm:px-2"
-                  onClick={handleAddToCart}
-                  aria-label={`${product.name} - კალათში დამატება`}
-                >
-                  <ShoppingCart className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                  <span className="hidden xs:hidden sm:inline md:hidden lg:inline">კალათში</span>
-                </Button>
+                    {discountedPrice !== null && (
+                      <p className="text-[0.55rem] xs:text-[0.6rem] sm:text-xs md:text-sm font-semibold text-destructive truncate">
+                        {new Intl.NumberFormat('ka-GE', {
+                          style: 'currency',
+                          currency: 'GEL',
+                          maximumFractionDigits: 0
+                        }).format(discountedPrice)}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[0.55rem] xs:text-[0.6rem] sm:text-xs md:text-sm font-semibold text-gray-900 truncate">
+                    {new Intl.NumberFormat('ka-GE', {
+                      style: 'currency',
+                      currency: 'GEL',
+                      maximumFractionDigits: 0
+                    }).format(product.price)}
+                  </p>
+                )}
               </div>
-            </>
-          )}
-        </div>
+              
+              <Button 
+                size="sm" 
+                variant="default" 
+                className="flex items-center gap-0.5 xs:gap-1 rounded-md whitespace-nowrap text-[0.55rem] xs:text-[0.6rem] sm:text-xs md:text-sm h-5 xs:h-6 sm:h-7 md:h-8 min-w-5 xs:min-w-6 sm:min-w-0 px-0.5 xs:px-1 sm:px-2"
+                onClick={handleAddToCart}
+                aria-label={`${product.name} - კალათში დამატება`}
+              >
+                <ShoppingCart className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+                <span className="hidden xs:hidden sm:inline md:hidden lg:inline">კალათში</span>
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </Link>
   );

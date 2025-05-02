@@ -3,6 +3,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, Auth } from "firebase/aut
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
+import { getDatabase, Database } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,7 +12,8 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "https://your-project-id-default-rtdb.firebaseio.com"
 };
 
 // Initialize Firebase
@@ -21,6 +23,7 @@ let db: Firestore;
 let storage: FirebaseStorage;
 let googleProvider: GoogleAuthProvider;
 let analytics: any;
+let realtimeDb: Database;
 
 if (typeof window !== 'undefined') {
   try {
@@ -29,10 +32,11 @@ if (typeof window !== 'undefined') {
     db = getFirestore(app);
     storage = getStorage(app);
     analytics = getAnalytics(app);
+    realtimeDb = getDatabase(app);
     googleProvider = new GoogleAuthProvider();
   } catch (error) {
     console.error("Firebase initialization error:", error);
   }
 }
 
-export { app, auth, db, storage, analytics, googleProvider, signInWithPopup }; 
+export { app, auth, db, storage, analytics, googleProvider, signInWithPopup, realtimeDb }; 

@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart } from '@/components/shop/shopping-cart';
 import { CategoryDropdown } from '@/components/shop/category-dropdown';
 import { Category } from '@/types';
 import { getCategories, getUserRole, getSettings } from '@/lib/firebase-service';
@@ -15,6 +14,7 @@ import { auth } from '@/lib/firebase-config';
 import { signInWithGoogle, signOut } from '@/lib/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Input } from '@/components/ui/input';
+import SearchResults from '@/components/shop/search-results';
 
 interface ShopLayoutProps {
   children: React.ReactNode;
@@ -35,45 +35,21 @@ export function ShopLayout({ children }: ShopLayoutProps) {
   const router = useRouter();
   const { totalItems } = useCart();
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [settings, setSettings] = useState<SiteSettings>({});
   
   const emailInputId = React.useId();
   const subscribeButtonId = React.useId();
+  const searchParams = useSearchParams();
 
-  // Debounce search term update
+  // ჩატვირთვისას დავაყენოთ searchTerm URL-დან
   useEffect(() => {
-    // Don't run on initial mount if searchTerm is empty
-    if (searchTerm === undefined || searchTerm === null) return;
-
-    const handler = setTimeout(() => {
-      // Construct the new query parameters
-      const params = new URLSearchParams(window.location.search);
-      if (searchTerm) {
-        params.set('search', searchTerm);
-      } else {
-        params.delete('search');
-      }
-      // Update the URL without full page reload, only if search term changed
-      // Need to compare with current URL search param to avoid unnecessary pushes
-      const currentSearch = new URLSearchParams(window.location.search).get('search') || '';
-      if (searchTerm !== currentSearch) {
-        // Keep existing category param if present
-        const category = params.get('category');
-        const newSearch = new URLSearchParams();
-        if (category) newSearch.set('category', category);
-        if (searchTerm) newSearch.set('search', searchTerm);
-        
-        router.push(`/shop?${newSearch.toString()}`);
-      }
-    }, 300); // 300ms debounce (changed from 500ms)
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchTerm, router]); // Depend on searchTerm and router
+    const query = searchParams?.get('search') || '';
+    setSearchTerm(query);
+  }, [searchParams]);
 
   const navItems = [
     { href: '/shop', label: 'მთავარი' },
@@ -128,7 +104,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
         setIsAdmin(false);
       }
       
-      setLoading(false);
+      setLoadingAuth(false);
     });
 
     return () => unsubscribe();
@@ -142,19 +118,32 @@ export function ShopLayout({ children }: ShopLayoutProps) {
     await signOut();
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // URL update is now handled by the useEffect hook with debounce
-    // We can keep this function for explicit Enter press if needed, 
-    // but the useEffect covers the real-time update requirement.
-    // For clarity, let's ensure the latest term is pushed immediately on submit
-    const params = new URLSearchParams(window.location.search);
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    
+    // თუ საკმარისი სიმბოლოებია, ავტომატურად გახსნას შედეგები
+    if (value.trim().length >= 2) {
+      setShowSearchResults(true);
+    } else if (value.trim().length === 0) {
+      setShowSearchResults(false);
     }
-    router.push(`/shop?${params.toString()}`);
+  };
+
+  const handleSearchFocus = () => {
+    if (searchTerm.trim().length >= 2) {
+      setShowSearchResults(true);
+    }
+  };
+
+  const handleCloseSearch = () => {
+    setShowSearchResults(false);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); 
+    // Maybe navigate to a dedicated search page if needed?
+    // For now, just prevents default form submission.
   };
 
   return (
@@ -178,17 +167,25 @@ export function ShopLayout({ children }: ShopLayoutProps) {
                   <CategoryDropdown />
                 </div>
                 
-                <form onSubmit={handleSearch} className="w-full max-w-md">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="პროდუქტის ძიება..."
-                      className="pl-8 w-full"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                </form>
+                <div className="relative w-full max-w-lg">
+                  <form onSubmit={handleSearchSubmit} className="flex items-center w-full">
+                    <div className="relative flex-grow">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="პროდუქტის ძიება..."
+                        className="pl-9 w-full"
+                        value={searchTerm}
+                        onChange={handleSearchInputChange}
+                        onFocus={handleSearchFocus}
+                      />
+                    </div>
+                  </form>
+                  <SearchResults 
+                    searchTerm={searchTerm} 
+                    onClose={handleCloseSearch} 
+                    isOpen={showSearchResults}
+                  />
+                </div>
               </div>
               
               <div className="flex items-center space-x-4">
@@ -210,7 +207,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
                   )}
                 </button>
                 
-                {!loading && (
+                {!loadingAuth && (
                   <>
                     {user ? (
                       <div className="flex items-center space-x-4">
@@ -277,18 +274,23 @@ export function ShopLayout({ children }: ShopLayoutProps) {
             
             {/* მობილური საძიებო - ყოველთვის ჩანს */}
             <div className="mt-3 md:hidden">
-              {/* Remove onSubmit handler as useEffect handles updates */}
-              <form onSubmit={(e) => e.preventDefault()}> 
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <div className="relative">
+                <form onSubmit={handleSearchSubmit} className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="პროდუქტის ძიება..."
-                    className="pl-8 w-full py-1.5 text-sm"
+                    className="pl-9 w-full py-1.5 text-sm"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchInputChange}
+                    onFocus={handleSearchFocus}
                   />
-                </div>
-              </form>
+                </form>
+                <SearchResults 
+                  searchTerm={searchTerm} 
+                  onClose={handleCloseSearch} 
+                  isOpen={showSearchResults}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -327,10 +329,12 @@ export function ShopLayout({ children }: ShopLayoutProps) {
       )}
 
       {/* Main content */}
-      <main className="flex-1 bg-gray-50 py-6">
-        <div className="container mx-auto px-4">
-          {children}
-        </div>
+      <main className="flex-grow container mx-auto px-4 py-6">
+        {/* {isLoading ? ( // <- ვშლით ამ ბლოკს
+          // Placeholder for category loading or similar, REMOVE THIS
+          <div className="w-full h-10 bg-gray-200 rounded animate-pulse mb-4"></div>
+        ) : null} */}
+        {children}
       </main>
 
       {/* Footer */}

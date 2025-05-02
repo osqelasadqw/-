@@ -1,15 +1,11 @@
+// იმპორტი why-did-you-render - დროებით ვცდით აქ
+// import '@/wdyr'; // -> პირდაპირი იმპორტის მაგივრად გამოვიყენებთ კლიენტის კომპონენტს
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { CartProvider } from '@/components/providers/cart-provider';
-import { Toaster } from 'sonner';
-
-// Disable console logs in production
-if (process.env.NODE_ENV === "production") {
-  console.log = function () {};
-  console.error = function () {};
-  console.warn = function () {};
-}
+import { Toaster } from '@/components/ui/toaster';
+import ConsoleBlocker from './console-block';
 
 // Add polyfill for ErrorEvent if it doesn't exist in the browser
 const addErrorEventPolyfill = `
@@ -116,10 +112,39 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: addErrorEventPolyfill }} />
         <script dangerouslySetInnerHTML={{ __html: cleanFdProcessedIdScript }} />
+        <script dangerouslySetInnerHTML={{ __html: `
+          // აქტიურდება მაშინვე საიტის ჩატვირთვისას
+          if (typeof window !== 'undefined') {
+            try {
+              // ვინახავთ ორიგინალ მეთოდებს დეველოპმენტისთვის
+              window._originalConsole = {
+                log: console.log,
+                error: console.error,
+                warn: console.warn,
+                info: console.info,
+                debug: console.debug
+              };
+              
+              // ყველა კონსოლის მეთოდის გადაწერა
+              const noop = function() {};
+              console.log = noop;
+              console.info = noop; 
+              console.warn = noop;
+              console.error = noop;
+              console.debug = noop;
+              console.trace = noop;
+              console.dir = noop;
+              console.table = noop;
+            } catch (e) {
+              // იგნორირება
+            }
+          }
+        `}} />
       </head>
       <body className={inter.className} suppressHydrationWarning>
+        <ConsoleBlocker />
         <CartProvider>{children}</CartProvider>
-        <Toaster richColors position="top-right" />
+        <Toaster />
       </body>
     </html>
   );

@@ -35,6 +35,7 @@ export default function AddProductPage() {
     description: '',
     price: '',
     categoryId: '',
+    stock: '0',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -60,21 +61,25 @@ export default function AddProductPage() {
     const newErrors: Record<string, string> = {};
     
     if (!formData.name.trim()) {
-      newErrors.name = 'Product name is required';
+      newErrors.name = 'პროდუქტის სახელი აუცილებელია';
     }
     
     if (!formData.description.trim()) {
-      newErrors.description = 'Product description is required';
+      newErrors.description = 'პროდუქტის აღწერა აუცილებელია';
     }
     
     if (!formData.price) {
-      newErrors.price = 'Price is required';
+      newErrors.price = 'ფასი აუცილებელია';
     } else if (isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
-      newErrors.price = 'Price must be a positive number';
+      newErrors.price = 'ფასი უნდა იყოს დადებითი რიცხვი';
     }
     
     if (!formData.categoryId) {
-      newErrors.categoryId = 'Category is required';
+      newErrors.categoryId = 'კატეგორია აუცილებელია';
+    }
+    
+    if (formData.stock && (isNaN(parseInt(formData.stock)) || parseInt(formData.stock) < 0)) {
+      newErrors.stock = 'მარაგი უნდა იყოს არაუარყოფითი რიცხვი';
     }
     
     setErrors(newErrors);
@@ -110,7 +115,8 @@ export default function AddProductPage() {
         description: formData.description.trim(),
         price: parseFloat(formData.price),
         categoryId: formData.categoryId,
-        images: [], // Empty images array
+        images: [],
+        stock: parseInt(formData.stock),
       };
       
       await createProduct(productData);
@@ -118,7 +124,7 @@ export default function AddProductPage() {
       router.push('/admin/products');
     } catch (error) {
       console.error('Error creating product:', error);
-      setErrors({ submit: 'Failed to create product. Please try again.' });
+      setErrors({ submit: 'პროდუქტის შექმნა ვერ მოხერხდა. გთხოვთ, სცადოთ ხელახლა.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -131,14 +137,14 @@ export default function AddProductPage() {
           variant="ghost"
           size="icon"
           onClick={() => router.back()}
-          aria-label="Go back"
+          aria-label="უკან დაბრუნება"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Add Product</h1>
+          <h1 className="text-3xl font-bold tracking-tight">პროდუქტის დამატება</h1>
           <p className="text-muted-foreground">
-            Create a new product in your store
+            შექმენით ახალი პროდუქტი თქვენს მაღაზიაში
           </p>
         </div>
       </div>
@@ -147,20 +153,20 @@ export default function AddProductPage() {
         <div className="grid gap-6 mb-6">
           <Card>
             <CardHeader>
-              <CardTitle>Product Information</CardTitle>
+              <CardTitle>პროდუქტის ინფორმაცია</CardTitle>
               <CardDescription>
-                Basic information about your product
+                ძირითადი ინფორმაცია თქვენი პროდუქტის შესახებ
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">
-                  Product Name <span className="text-red-500">*</span>
+                  პროდუქტის სახელი <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="name"
                   name="name"
-                  placeholder="Enter product name"
+                  placeholder="შეიყვანეთ პროდუქტის სახელი"
                   value={formData.name}
                   onChange={handleInputChange}
                 />
@@ -171,12 +177,12 @@ export default function AddProductPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="description">
-                  Description <span className="text-red-500">*</span>
+                  აღწერა <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
                   id="description"
                   name="description"
-                  placeholder="Enter product description"
+                  placeholder="შეიყვანეთ პროდუქტის აღწერა"
                   rows={4}
                   value={formData.description}
                   onChange={handleInputChange}
@@ -186,10 +192,10 @@ export default function AddProductPage() {
                 )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="price">
-                    Price (₾) <span className="text-red-500">*</span>
+                    ფასი (₾) <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="price"
@@ -207,14 +213,33 @@ export default function AddProductPage() {
                 </div>
                 
                 <div className="space-y-2">
+                  <Label htmlFor="stock">
+                    მარაგი
+                  </Label>
+                  <Input
+                    id="stock"
+                    name="stock"
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="0"
+                    value={formData.stock}
+                    onChange={handleInputChange}
+                  />
+                  {errors.stock && (
+                    <p className="text-sm text-red-500">{errors.stock}</p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
                   <Label htmlFor="category">
-                    Category <span className="text-red-500">*</span>
+                    კატეგორია <span className="text-red-500">*</span>
                   </Label>
                   {isLoading ? (
                     <div className="animate-pulse h-10 w-full bg-muted rounded-md"></div>
                   ) : categories.length === 0 ? (
                     <p className="text-sm text-amber-500">
-                      No categories available. Please create a category first.
+                      კატეგორიები არ არის ხელმისაწვდომი. გთხოვთ, ჯერ შექმნათ კატეგორია.
                     </p>
                   ) : (
                     <Select 
@@ -224,12 +249,12 @@ export default function AddProductPage() {
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="აირჩიეთ კატეგორია" />
                       </SelectTrigger>
-                      <SelectContent className="after:content-[''] after:block after:h-3">
-                        <SelectItem value="electronics">ელექტრონიკა</SelectItem>
-                        <SelectItem value="clothing">ტანსაცმელი</SelectItem>
-                        <SelectItem value="books">წიგნები</SelectItem>
-                        <SelectItem value="home">სახლი</SelectItem>
-                        <SelectItem value="other">სხვა</SelectItem>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
@@ -250,12 +275,14 @@ export default function AddProductPage() {
               type="button"
               variant="outline"
               onClick={() => router.back()}
+            >
+              უკან დაბრუნება
+            </Button>
+            <Button 
+              type="submit" 
               disabled={isSubmitting}
             >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting || isLoading}>
-              {isSubmitting ? 'Creating...' : 'Create Product'}
+              {isSubmitting ? 'დამატება...' : 'პროდუქტის დამატება'}
             </Button>
           </div>
         </div>

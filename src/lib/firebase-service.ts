@@ -21,10 +21,16 @@ import {
   getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
-import { db, storage } from './firebase-config';
+import { db, storage, realtimeDb } from './firebase-config';
 import { Product, Category } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { batchConvertToWebP } from './image-utils';
+import { 
+  set as rtdbSet, 
+  ref as rtdbRef, 
+  get as rtdbGet,
+  runTransaction 
+} from 'firebase/database';
 
 // Helper function to convert Firebase timestamp to milliseconds
 const convertTimestampToMillis = (timestamp: Timestamp) => {
@@ -180,20 +186,29 @@ export const createProduct = async (
     description: string;
     price: number;
     images: string[];
-    categoryId?: string; // Make categoryId optional
+    categoryId?: string; 
+    stock?: number; // დავამატეთ stock ველი
   }
 ): Promise<Product> => {
   try {
     const timestamp = Date.now();
     const productRef = collection(db, 'products');
     
+    // პროდუქტის მონაცემებიდან ვიღებთ stock-ს
+    const { stock, ...productDataWithoutStock } = productData;
+    
     const newProduct = {
-      ...productData,
+      ...productDataWithoutStock,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
     
     const docRef = await addDoc(productRef, newProduct);
+    
+    // თუ მითითებულია მარაგი, Realtime Database-ში ვინახავთ
+    if (stock !== undefined) {
+      await updateProductStock(docRef.id, stock);
+    }
     
     return {
       id: docRef.id,
@@ -228,6 +243,38 @@ export const markProductAsSpecial = async (id: string, isSpecial: boolean): Prom
   const docRef = doc(db, 'products', id);
   await updateDoc(docRef, {
     isSpecial,
+    updatedAt: serverTimestamp(),
+  });
+  
+  const updatedProduct = await getProductById(id);
+  if (!updatedProduct) {
+    throw new Error('Failed to update product');
+  }
+  
+  return updatedProduct;
+};
+
+// ფუნქცია გამორჩეული პროდუქტების მოსანიშნად
+export const markProductAsFeatured = async (id: string, isFeatured: boolean): Promise<Product> => {
+  const docRef = doc(db, 'products', id);
+  await updateDoc(docRef, {
+    isFeatured,
+    updatedAt: serverTimestamp(),
+  });
+  
+  const updatedProduct = await getProductById(id);
+  if (!updatedProduct) {
+    throw new Error('Failed to update product');
+  }
+  
+  return updatedProduct;
+};
+
+// ფუნქცია ახალი კოლექციის პროდუქტების მოსანიშნად
+export const markProductAsNewCollection = async (id: string, isNewCollection: boolean): Promise<Product> => {
+  const docRef = doc(db, 'products', id);
+  await updateDoc(docRef, {
+    isNewCollection,
     updatedAt: serverTimestamp(),
   });
   
@@ -275,8 +322,7 @@ export const uploadProductImage = async (
         return;
       }
 
-      // Check file size
-      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+      // Check file size - ვიყენებთ MAX_FILE_SIZE კონსტანტას
       if (file.size > MAX_FILE_SIZE) {
         reject(new Error(`File size exceeds 5MB limit: ${(file.size / (1024 * 1024)).toFixed(2)}MB`));
         return;
@@ -377,6 +423,51 @@ export const updateUserRole = async (userId: string, isAdmin: boolean): Promise<
 };
 
 /**
+ * Get product images with pagination
+ * @param productId The ID of the product to get images for
+ * @param startIndex The index to start getting images from (default: 0)
+ * @param limit The maximum number of images to get (default: 10)
+ * @returns Promise with array of image URLs
+ */
+export const getPaginatedProductImages = async (
+  productId: string,
+  startIndex: number = 0,
+  limit: number = 10
+): Promise<{images: string[], totalCount: number}> => {
+  try {
+    const productRef = doc(db, 'products', productId);
+    const productSnap = await getDoc(productRef);
+    
+    if (!productSnap.exists()) {
+      return {images: [], totalCount: 0};
+    }
+    
+    const productData = productSnap.data();
+    const allImages = productData.images || [];
+    const totalCount = allImages.length;
+    
+    // Return paginated results
+    const paginatedImages = allImages.slice(startIndex, startIndex + limit);
+    
+    return {
+      images: paginatedImages,
+      totalCount
+    };
+  } catch (error) {
+    console.error('Error getting paginated product images:', error);
+    return {images: [], totalCount: 0};
+  }
+};
+
+// ლიმიტის კონსტანტები
+// MAX_IMAGES - მაქსიმალური ფოტოების რაოდენობა, რაც შეიძლება აიტვირთოს პროდუქტზე
+// MAX_DISPLAY_IMAGES - მაქსიმალური ფოტოების რაოდენობა, რაც ერთ პაკეტად ჩაიტვირთება გამოსახვისას
+// MAX_FILE_SIZE - ერთი ფაილის მაქსიმალური ზომა ბაიტებში
+export const MAX_IMAGES = 10; // 100 -> 10 (ერთ პროდუქტზე მაქსიმუმ 10 ფოტოა საჭირო)
+export const MAX_DISPLAY_IMAGES = 10; // ერთ ჯერზე ჩვენებისთვის
+export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB ლიმიტი თითო ფაილისთვის
+
+/**
  * Upload multiple images to Firebase Storage with WebP conversion
  * @param files Array of files to upload
  * @param progressCallback Optional callback to track upload progress for each file
@@ -389,6 +480,11 @@ export const uploadImagesToFirebase = async (
   if (!files.length) return [];
   
   try {
+    // ლიმიტის დაწესება - მაქსიმუმ 20 ფოტო (ეს ლიმიტი რჩება ატვირთვისთვის)
+    if (files.length > MAX_IMAGES) {
+      throw new Error(`ფოტოების რაოდენობა არ უნდა აღემატებოდეს ${MAX_IMAGES}-ს. გთხოვთ აირჩიოთ ნაკლები ფოტო.`);
+    }
+    
     // Convert all images to WebP format for better performance
     const webpFiles = await batchConvertToWebP(files, 0.8);
     
@@ -642,6 +738,67 @@ export const getPublicDiscounts = async () => {
     return publicDiscounts;
   } catch (error) {
     console.error('შეცდომა საჯარო ფასდაკლებების მიღებისას:', error);
+    throw error;
+  }
+};
+
+// მარაგის ოპერაციები Realtime Database-ზე
+
+// მარაგის დამატება/განახლება
+export const updateProductStock = async (productId: string, stockCount: number): Promise<void> => {
+  try {
+    const stockRef = rtdbRef(realtimeDb, `stock/${productId}`);
+    await rtdbSet(stockRef, stockCount);
+  } catch (error) {
+    console.error('Error updating product stock:', error);
+    throw error;
+  }
+};
+
+// მარაგის შემოწმება
+export const getProductStock = async (productId: string): Promise<number> => {
+  try {
+    const stockRef = rtdbRef(realtimeDb, `stock/${productId}`);
+    const snapshot = await rtdbGet(stockRef);
+    
+    if (snapshot.exists()) {
+      return snapshot.val();
+    }
+    return 0; // თუ არ არსებობს, ვაბრუნებთ 0
+  } catch (error) {
+    console.error('Error getting product stock:', error);
+    return 0;
+  }
+};
+
+// მარაგის შემცირება ყიდვისას (transaction-ით)
+export const decrementStock = async (productId: string): Promise<boolean> => {
+  try {
+    const stockRef = rtdbRef(realtimeDb, `stock/${productId}`);
+    
+    const result = await runTransaction(stockRef, (currentStock) => {
+      // თუ მარაგი არ არსებობს
+      if (currentStock === null) {
+        return 0;
+      }
+      
+      // თუ მარაგი 0-ზე მეტია, შევამციროთ
+      if (currentStock > 0) {
+        return currentStock - 1;
+      } else {
+        // მარაგი ამოწურულია, არ ვცვლით
+        return;
+      }
+    });
+    
+    // transaction შედეგის შემოწმება
+    if (result.committed) {
+      return true; // წარმატებით შემცირდა მარაგი
+    } else {
+      return false; // მარაგი ამოწურულია ან სხვა შეცდომა
+    }
+  } catch (error) {
+    console.error('Error decrementing product stock:', error);
     throw error;
   }
 }; 

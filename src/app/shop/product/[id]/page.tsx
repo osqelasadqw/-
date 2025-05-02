@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ShopLayout } from '@/components/layouts/shop-layout';
-import { getProductById, getProductsByCategory } from '@/lib/firebase-service';
+import { getProductById, getProductsByCategory, getPaginatedProductImages, MAX_DISPLAY_IMAGES } from '@/lib/firebase-service';
 import { Product } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/components/providers/cart-provider';
@@ -38,11 +38,103 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { ProductStockBadge } from '@/components/shop/product-stock-badge';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination, Thumbs, FreeMode, Autoplay } from 'swiper/modules';
+
+// Import Swiper styles
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import 'swiper/css/thumbs';
+import 'swiper/css/free-mode';
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 
-export default function ProductDetailPage() {
-  const { id } = useParams();
+// მემოიზებული კომპონენტები რერენდერების შესამცირებლად
+const MemoizedPriceRangeInputs = React.memo(function PriceRangeInputs({
+  isMobile,
+  minMaxPrice,
+  priceRange,
+  handleMinPriceChange,
+  handleMaxPriceChange
+}: {
+  isMobile: boolean;
+  minMaxPrice: [number, number];
+  priceRange: [number, number];
+  handleMinPriceChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleMaxPriceChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const idPrefix = isMobile ? 'mobile' : 'desktop';
+  return (
+    <div className="space-y-4">
+      <h2 className="font-medium text-sm">ფასი</h2>
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col items-center">
+          <Label htmlFor={`min-price-${idPrefix}`} className="mb-1 text-xs">მინიმალური</Label>
+          <input
+            id={`min-price-${idPrefix}`}
+            type="number"
+            className="border rounded-md px-2 py-1 w-24 text-center"
+            min={minMaxPrice[0]}
+            max={priceRange[1]}
+            value={priceRange[0]}
+            onChange={handleMinPriceChange}
+          />
+        </div>
+        <div className="flex items-center justify-center">
+          <span className="text-gray-400 mx-2">-</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <Label htmlFor={`max-price-${idPrefix}`} className="mb-1 text-xs">მაქსიმალური</Label>
+          <input
+            id={`max-price-${idPrefix}`}
+            type="number"
+            className="border rounded-md px-2 py-1 w-24 text-center"
+            min={priceRange[0]}
+            max={minMaxPrice[1]}
+            value={priceRange[1]}
+            onChange={handleMaxPriceChange}
+          />
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const MemoizedSortSelector = React.memo(function SortSelector({
+  relatedSortOption,
+  setRelatedSortOption
+}: {
+  relatedSortOption: SortOption;
+  setRelatedSortOption: (value: SortOption) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <h2 className="font-medium text-sm">დახარისხება</h2>
+      <Select
+        value={relatedSortOption}
+        onValueChange={(value) => setRelatedSortOption(value as SortOption)}
+      >
+        <SelectTrigger aria-label="დახარისხების პარამეტრები">
+          <SelectValue placeholder="აირჩიეთ ვარიანტი" />
+        </SelectTrigger>
+        <SelectContent className="after:content-[''] after:block after:h-3">
+          <SelectItem value="newest">უახლესი</SelectItem>
+          <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
+          <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
+          <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
+          <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+});
+
+// გამოვიყენოთ React.memo, რომ თავიდან ავიცილოთ ზედმეტი რერენდერები
+const ProductDetailPage = React.memo(function ProductDetailPage() {
+  const params = useParams() || {};
+  const id = params.id ? String(params.id) : '';
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -55,26 +147,40 @@ export default function ProductDetailPage() {
   const [isPublicDiscount, setIsPublicDiscount] = useState(false);
   const [discountedPrice, setDiscountedPrice] = useState(0);
   const [_error, setError] = useState<string | null>(null); // გამოუყენებელი error ცვლადი
+  const [thumbsSwiper, setThumbsSwiper] = useState(null);
+  
+  // ახალი სტეიტები ფოტოების პაკეტურად ჩატვირთვისთვის
+  const [loadedImages, setLoadedImages] = useState<string[]>([]);
+  const [totalImageCount, setTotalImageCount] = useState<number>(0);
+  const [isLoadingMoreImages, setIsLoadingMoreImages] = useState<boolean>(false);
+  const [hasMoreImages, setHasMoreImages] = useState<boolean>(false);
 
-  // Filtering state for related products
-  const [minMaxPrice, setMinMaxPrice] = useState<[number, number]>([0, 1000]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
+  // Filtering state for related products - გამოვიყენოთ მემოიზაცია საწყისი მნიშვნელობებისთვის
+  const initialMinMaxPrice = useMemo(() => [0, 1000] as [number, number], []);
+  const initialPriceRange = useMemo(() => [0, 0] as [number, number], []);
+  const [minMaxPrice, setMinMaxPrice] = useState<[number, number]>(initialMinMaxPrice);
+  const [priceRange, setPriceRange] = useState<[number, number]>(initialPriceRange);
   const [userModifiedRange, setUserModifiedRange] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
 
   // Define all memoized values and callbacks at the top level, before any conditional logic
   const defaultImage = useMemo(() => 'https://placehold.co/600x600/eee/999?text=No+Image', []);
-  const hasMultipleImages = useMemo(() => product?.images && product.images.length > 1, [product?.images]);
+  const hasMultipleImages = useMemo(() => loadedImages.length > 1 || totalImageCount > 1, [loadedImages.length, totalImageCount]);
   const currentImage = useMemo(() => {
-    if (!product?.images || product.images.length === 0) {
+    if (!loadedImages || loadedImages.length === 0) {
       return defaultImage;
     }
-    return product.images[currentImageIndex];
-  }, [product?.images, currentImageIndex, defaultImage]);
+    return loadedImages[currentImageIndex] || defaultImage;
+  }, [loadedImages, currentImageIndex, defaultImage]);
+
+  // რელატედ სორტ ოფშენ სეტერის მემოიზაცია 
+  const setRelatedSortOptionCallback = useCallback((option: SortOption) => {
+    setRelatedSortOption(option);
+  }, []);
 
   // Declare all callbacks at the top before any conditional returns
   const handleReset = useCallback(() => {
-    setPriceRange([minMaxPrice[0], minMaxPrice[1]]);
+    setPriceRange(prev => [minMaxPrice[0], minMaxPrice[1]]);
     setUserModifiedRange(false);
     setRelatedSortOption('newest');
   }, [minMaxPrice]);
@@ -99,86 +205,29 @@ export default function ProductDetailPage() {
     }
   }, [minMaxPrice, priceRange]);
 
-  const PriceRangeInputs = useCallback(({isMobile}: {isMobile: boolean}) => {
-    const idPrefix = isMobile ? 'mobile' : 'desktop';
-    return (
-      <div className="space-y-4">
-        <h2 className="font-medium text-sm">ფასი</h2>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col items-center">
-            <Label htmlFor={`min-price-${idPrefix}`} className="mb-1 text-xs">მინიმალური</Label>
-            <input
-              id={`min-price-${idPrefix}`}
-              type="number"
-              className="border rounded-md px-2 py-1 w-24 text-center"
-              min={minMaxPrice[0]}
-              max={priceRange[1]}
-              value={priceRange[0]}
-              onChange={handleMinPriceChange}
-            />
-          </div>
-          <div className="flex items-center justify-center">
-            <span className="text-gray-400 mx-2">-</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <Label htmlFor={`max-price-${idPrefix}`} className="mb-1 text-xs">მაქსიმალური</Label>
-            <input
-              id={`max-price-${idPrefix}`}
-              type="number"
-              className="border rounded-md px-2 py-1 w-24 text-center"
-              min={priceRange[0]}
-              max={minMaxPrice[1]}
-              value={priceRange[1]}
-              onChange={handleMaxPriceChange}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }, [minMaxPrice, priceRange, handleMinPriceChange, handleMaxPriceChange]);
-
-  const SortSelector = useCallback(() => {
-    return (
-      <div className="space-y-4">
-        <h2 className="font-medium text-sm">დახარისხება</h2>
-        <Select
-          value={relatedSortOption}
-          onValueChange={(value) => setRelatedSortOption(value as SortOption)}
-        >
-          <SelectTrigger aria-label="დახარისხების პარამეტრები">
-            <SelectValue placeholder="აირჩიეთ ვარიანტი" />
-          </SelectTrigger>
-          <SelectContent className="after:content-[''] after:block after:h-3">
-            <SelectItem value="newest">უახლესი</SelectItem>
-            <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
-            <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
-            <SelectItem value="name-asc">სახელი: ა-ჰ</SelectItem>
-            <SelectItem value="name-desc">სახელი: ჰ-ა</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }, [relatedSortOption]);
-
   const toggleImageZoom = useCallback(() => {
-    setIsImageZoomed(!isImageZoomed);
-  }, [isImageZoomed]);
+    setIsImageZoomed(prev => !prev);
+  }, []);
 
   const nextImage = useCallback(() => {
-    if (product?.images && product.images.length > 0) {
-      setCurrentImageIndex((prev) => 
-        prev === product.images.length - 1 ? 0 : prev + 1
-      );
+    if (loadedImages && loadedImages.length > 0) {
+      const newIndex = currentImageIndex === loadedImages.length - 1 ? 0 : currentImageIndex + 1;
+      setCurrentImageIndex(newIndex);
+      
+      // თუ მომხმარებელი აღწევს ჩატვირთული სურათების ბოლოს, ავტომატურად ვტვირთავთ მეტ სურათს
+      if (newIndex > loadedImages.length - 3 && hasMoreImages && !isLoadingMoreImages) {
+        loadMoreImages();
+      }
     }
-  }, [product?.images]);
+  }, [loadedImages, currentImageIndex, hasMoreImages, isLoadingMoreImages]);
 
   const prevImage = useCallback(() => {
-    if (product?.images && product.images.length > 0) {
-      setCurrentImageIndex((prev) => 
-        prev === 0 ? product.images.length - 1 : prev - 1
+    if (loadedImages && loadedImages.length > 0) {
+      setCurrentImageIndex(prev => 
+        prev === 0 ? loadedImages.length - 1 : prev - 1
       );
     }
-  }, [product?.images]);
+  }, [loadedImages]);
 
   const handleQuantityChange = useCallback((delta: number) => {
     setQuantity(prev => Math.max(1, prev + delta));
@@ -194,17 +243,12 @@ export default function ProductDetailPage() {
           price: discountedPrice // დროებით შეცვლა ფასის კალათში, რომ იყოს ფასდაკლებით
         };
         
-        for (let i = 0; i < quantity; i++) {
           addToCart(discountedProduct);
-        }
       } else {
-        // თუ არ აქვს ფასდაკლება, ჩვეულებრივად ვამატებთ
-        for (let i = 0; i < quantity; i++) {
           addToCart(product);
-        }
       }
     }
-  }, [product, isPublicDiscount, discountedPrice, quantity, addToCart]);
+  }, [product, addToCart, isPublicDiscount, discountedPrice]);
 
   // Memoized filtered and sorted related products for performance
   const filteredAndSortedRelatedProducts = useMemo(() => {
@@ -234,6 +278,44 @@ export default function ProductDetailPage() {
     // Always return sorted array, never have multiple return paths
     return sorted;
   }, [relatedProducts, relatedSortOption, priceRange, userModifiedRange]);
+  
+  const handleThumbsSwiper = useCallback((swiper: any) => {
+    setThumbsSwiper(swiper);
+  }, []);
+
+  const handleSlideChange = useCallback((swiper: any) => {
+    setCurrentImageIndex(swiper.activeIndex);
+  }, []);
+
+  // ფოტოების ჩატვირთვის ფუნქცია
+  const loadProductImages = useCallback(async (productId: string, startIndex: number = 0) => {
+    try {
+      setIsLoadingMoreImages(true);
+      const { images, totalCount } = await getPaginatedProductImages(productId, startIndex, MAX_DISPLAY_IMAGES);
+      
+      if (startIndex === 0) {
+        // პირველი პაკეტის ჩატვირთვა
+        setLoadedImages(images);
+      } else {
+        // შემდგომი პაკეტების დამატება
+        setLoadedImages(prev => [...prev, ...images]);
+      }
+      
+      setTotalImageCount(totalCount);
+      setHasMoreImages(startIndex + images.length < totalCount);
+    } catch (error) {
+      console.error('Error loading product images:', error);
+    } finally {
+      setIsLoadingMoreImages(false);
+    }
+  }, []);
+
+  // მეტი ფოტოს ჩატვირთვის ფუნქცია
+  const loadMoreImages = useCallback(() => {
+    if (product && !isLoadingMoreImages && hasMoreImages) {
+      loadProductImages(product.id, loadedImages.length);
+    }
+  }, [product, loadedImages.length, isLoadingMoreImages, hasMoreImages, loadProductImages]);
 
   const fetchProduct = useCallback(async () => {
     try {
@@ -247,6 +329,9 @@ export default function ProductDetailPage() {
       }
       
       setProduct(productData);
+      
+      // პროდუქტის პირველი პაკეტი ფოტოების ჩატვირთვა
+      await loadProductImages(productData.id);
       
       // მხოლოდ საჯარო ფასდაკლების შემოწმება
       const hasPublicDiscount = productData.promoActive && 
@@ -268,29 +353,35 @@ export default function ProductDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, loadProductImages]);
 
   const fetchRelatedProducts = useCallback(async (categoryId: string, currentProductId: string) => {
     try {
-      const products = await getProductsByCategory(categoryId);
-      // Filter out the current product
-      const otherProducts = products.filter(p => p.id !== currentProductId);
-      setRelatedProducts(otherProducts);
+      const productsInCategory = await getProductsByCategory(categoryId);
+      // ამოვიღოთ მიმდინარე პროდუქტი დაკავშირებული პროდუქტების სიიდან
+      const filteredProducts = productsInCategory.filter(p => p.id !== currentProductId);
       
-      // Set min and max price for the filter
-      if (otherProducts.length > 0) {
-        const prices = otherProducts.map(p => p.price || 0);
-        const calculatedMinMax: [number, number] = [
-          Math.floor(Math.min(...prices)), 
-          Math.ceil(Math.max(...prices))
-        ];
-        setMinMaxPrice(calculatedMinMax);
-        setPriceRange(calculatedMinMax);
+      setRelatedProducts(filteredProducts);
+      
+      // ვიპოვოთ მინ-მაქს ფასები შესწორებული მიდგომით
+      if (filteredProducts.length > 0) {
+        const prices = filteredProducts.map(p => p.price || 0);
+        const min = Math.floor(Math.min(...prices));
+        const max = Math.ceil(Math.max(...prices));
+        
+        // useMemo გამოვიყენოთ ახალი მასივებისთვის რათა თავიდან ავიცილოთ ზედმეტი რერენდერები
+        const newMinMaxPrice: [number, number] = [min, max];
+        setMinMaxPrice(newMinMaxPrice);
+        
+        // თუ მომხმარებელს ფილტრი არ აქვს მოდიფიცირებული, განვაახლოთ ფასის საზღვრებიც
+        if (!userModifiedRange) {
+          setPriceRange(prev => [min, max]);
+        }
       }
     } catch (error) {
       console.error('Error fetching related products:', error);
     }
-  }, []);
+  }, [userModifiedRange]);
 
   useEffect(() => {
     fetchProduct();
@@ -313,6 +404,30 @@ export default function ProductDetailPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isImageZoomed, prevImage, nextImage]);
+
+  // სტილები გლობალური სქროლბარის გამოსარიცხად
+  useEffect(() => {
+    // შევამოწმოთ ბრაუზერის გარემო
+    if (typeof window !== 'undefined') {
+      // მოვუსმინოთ რესაიზ ივენთს
+      const checkOverflow = () => {
+        const htmlElement = document.documentElement;
+        const hasHorizontalOverflow = htmlElement.scrollWidth > htmlElement.clientWidth;
+        
+        if (hasHorizontalOverflow) {
+          document.body.style.overflowX = 'hidden';
+        }
+      };
+      
+      // თავიდანვე გავასწოროთ ჰორიზონტალური სქროლბარი
+      document.body.style.overflowX = 'hidden';
+      
+      window.addEventListener('resize', checkOverflow);
+      return () => {
+        window.removeEventListener('resize', checkOverflow);
+      };
+    }
+  }, []);
 
   // Now we can have conditional returns since all hooks are defined
   if (isLoading) {
@@ -380,8 +495,17 @@ export default function ProductDetailPage() {
                 </SheetDescription>
               </SheetHeader>
               <div className="space-y-6 py-4">
-                <PriceRangeInputs isMobile={true} />
-                <SortSelector />
+                <MemoizedPriceRangeInputs 
+                  isMobile={true} 
+                  minMaxPrice={minMaxPrice}
+                  priceRange={priceRange}
+                  handleMinPriceChange={handleMinPriceChange}
+                  handleMaxPriceChange={handleMaxPriceChange}
+                />
+                <MemoizedSortSelector 
+                  relatedSortOption={relatedSortOption}
+                  setRelatedSortOption={setRelatedSortOptionCallback}
+                />
               </div>
               <div className="pt-4">
                 <Button onClick={handleReset} variant="outline" className="w-full">
@@ -416,8 +540,17 @@ export default function ProductDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <PriceRangeInputs isMobile={false} />
-                <SortSelector />
+                <MemoizedPriceRangeInputs 
+                  isMobile={false} 
+                  minMaxPrice={minMaxPrice}
+                  priceRange={priceRange}
+                  handleMinPriceChange={handleMinPriceChange}
+                  handleMaxPriceChange={handleMaxPriceChange}
+                />
+                <MemoizedSortSelector 
+                  relatedSortOption={relatedSortOption}
+                  setRelatedSortOption={setRelatedSortOptionCallback}
+                />
               </CardContent>
               <CardFooter>
                 <Button onClick={handleReset} variant="outline" className="w-full">
@@ -432,171 +565,253 @@ export default function ProductDetailPage() {
           <div className="flex flex-col md:flex-row gap-8">
             {/* Product Images */}
             <div className="w-full md:w-2/5">
-              {/* Main Image */}
-              <div 
-                className="relative aspect-square overflow-hidden rounded-md bg-white border cursor-pointer flex items-center justify-center max-h-[70vh]"
-                onClick={toggleImageZoom}
-              >
-                {/* ფასდაკლების Badge */}
-                {isPublicDiscount && (
-                  <div className="absolute top-4 right-4 z-10 bg-red-500 text-white px-2 py-1 rounded-md font-medium">
-                    {product.discountPercentage}% ფასდაკლება
+              {/* Main Image with Swiper */}
+              {hasMultipleImages ? (
+                <div className="product-swiper-container w-full aspect-square relative overflow-hidden">
+                  <Swiper
+                    modules={[Navigation, Pagination, Thumbs, Autoplay]}
+                    spaceBetween={0}
+                    slidesPerView={1}
+                    navigation={{
+                      nextEl: '.swiper-button-next',
+                      prevEl: '.swiper-button-prev',
+                    }}
+                    pagination={{ clickable: true }}
+                    thumbs={{ swiper: thumbsSwiper }}
+                    autoplay={{ 
+                      delay: 5000,
+                      disableOnInteraction: true,
+                      pauseOnMouseEnter: true 
+                    }}
+                    loop={loadedImages?.length > 1}
+                    onSlideChange={handleSlideChange}
+                    className="product-main-swiper rounded-md border overflow-hidden aspect-square"
+                    onClick={toggleImageZoom}
+                  >
+                    {loadedImages?.map((image, index) => (
+                      <SwiperSlide key={`main-${index}`} className="aspect-square">
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          {isPublicDiscount && index === 0 && (
+                            <div className="absolute top-4 right-4 z-10 bg-red-500 text-white px-2 py-1 rounded-md font-medium">
+                              {product?.discountPercentage}% ფასდაკლება
+                            </div>
+                          )}
+                          <div className="relative w-full h-full">
+                            <Image
+                              src={image}
+                              alt={`${product?.name} - სურათი ${index + 1}`}
+                              fill={true}
+                              sizes="(max-width: 768px) 100vw, 40vw"
+                              className="object-contain"
+                              priority={index === 0}
+                              loading={index === 0 ? "eager" : "lazy"}
+                              placeholder="blur"
+                              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                            />
+                          </div>
+                        </div>
+                      </SwiperSlide>
+                    ))}
+                    <div className="swiper-button-next"></div>
+                    <div className="swiper-button-prev"></div>
+                  </Swiper>
+
+                  {/* Thumbnail Swiper */}
+                  <div className="mt-4 overflow-hidden">
+                    <Swiper
+                      modules={[Navigation, FreeMode, Thumbs]}
+                      spaceBetween={10}
+                      slidesPerView="auto"
+                      freeMode={true}
+                      watchSlidesProgress={true}
+                      onSwiper={handleThumbsSwiper}
+                      className="product-thumbs-swiper"
+                      breakpoints={{
+                        0: {
+                          slidesPerView: 3.5,
+                          spaceBetween: 8,
+                        },
+                        480: {
+                          slidesPerView: 4.5,
+                          spaceBetween: 10,
+                        },
+                        768: {
+                          slidesPerView: 5,
+                          spaceBetween: 10,
+                        },
+                      }}
+                    >
+                      {loadedImages?.map((image, index) => (
+                        <SwiperSlide key={`thumb-${index}`} className="cursor-pointer">
+                          <div className={`relative h-full w-full rounded-md overflow-hidden border ${
+                            index === currentImageIndex ? 'ring-2 ring-primary border-primary' : 'opacity-70 hover:opacity-100'
+                          }`}>
+                            <Image
+                              src={image}
+                              alt={`${product?.name} - thumbnail ${index + 1}`}
+                              fill
+                              className="object-cover"
+                              sizes="80px"
+                              loading={index < 5 ? "eager" : "lazy"}
+                              placeholder="blur"
+                              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                            />
+                          </div>
+                        </SwiperSlide>
+                      ))}
+                    </Swiper>
                   </div>
-                )}
-              
-                <Image
-                  src={currentImage}
-                  alt={product.name}
-                  fill={true}
-                  sizes="(max-width: 768px) 100vw, 40vw"
-                  className="object-contain"
-                  priority
-                  loading="eager"
-                  placeholder="blur"
-                  blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                />
+                  
+                  {/* დავამატოთ ღილაკი მეტი ფოტოს ჩასატვირთად */}
+                  {hasMoreImages && (
+                    <div className="mt-2 text-center">
+                      <Button 
+                        onClick={loadMoreImages} 
+                        variant="outline" 
+                        size="sm"
+                        disabled={isLoadingMoreImages}
+                        className="text-xs"
+                      >
+                        {isLoadingMoreImages ? (
+                          <span className="flex items-center">
+                            <span className="w-3 h-3 mr-2 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+                            იტვირთება...
+                          </span>
+                        ) : (
+                          <span>მეტი ფოტოს ჩატვირთვა ({loadedImages.length}/{totalImageCount})</span>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Single image display if there's only one image
+                <div 
+                  className="relative aspect-square overflow-hidden rounded-md bg-white border cursor-pointer flex items-center justify-center max-h-[70vh]"
+                  onClick={toggleImageZoom}
+                >
+                  {isPublicDiscount && (
+                    <div className="absolute top-4 right-4 z-10 bg-red-500 text-white px-2 py-1 rounded-md font-medium">
+                      {product?.discountPercentage}% ფასდაკლება
+                    </div>
+                  )}
                 
-                {/* Image Navigation Arrows */}
-                {hasMultipleImages && (
-                  <>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); prevImage(); }} 
-                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-75 p-2 rounded-full shadow hover:bg-opacity-100 transition-all z-10"
-                      aria-label="წინა სურათი"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-75 p-2 rounded-full shadow hover:bg-opacity-100 transition-all z-10"
-                      aria-label="შემდეგი სურათი"
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </button>
-                  </>
-                )}
-              </div>
-              
-              {/* Thumbnail Gallery */}
-              {hasMultipleImages && (
-                <div className="mt-4 grid grid-cols-5 gap-2">
-                  {product.images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`aspect-square overflow-hidden rounded-md border ${
-                        index === currentImageIndex ? 'ring-2 ring-primary' : 'opacity-70 hover:opacity-100'
-                      }`}
-                      aria-label={`პროდუქტის სურათი ${index + 1}`}
-                    >
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <div className="relative w-auto h-auto max-w-full max-h-full">
                       <Image
-                        src={image}
-                        alt={`${product.name} - thumbnail ${index + 1}`}
-                        width={100}
-                        height={100}
-                        className="h-full w-full object-cover"
-                        loading={index < 5 ? "eager" : "lazy"}
+                        src={currentImage}
+                        alt={product?.name || ''}
+                        width={600}
+                        height={600}
+                        className="object-contain w-auto h-auto max-h-[60vh]"
+                        priority={true}
+                        loading="eager"
                         placeholder="blur"
                         blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
                       />
-                    </button>
-                  ))}
+                    </div>
+                  </div>
                 </div>
               )}
             
               {/* Full Screen Image Modal */}
               {isImageZoomed && (
                 <div 
-                  className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center"
+                  className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[999] flex items-center justify-center"
                   onClick={toggleImageZoom}
+                  style={{ overflow: 'hidden' }}
                 >
                   <button 
-                    className="absolute top-4 right-4 text-gray-800 bg-white shadow-lg rounded-full p-2 z-10"
-                    onClick={toggleImageZoom}
+                    className="fixed top-4 right-4 text-white bg-black/40 hover:bg-black/60 shadow-lg rounded-full p-2 z-[9999]"
+                    onClick={(e) => { e.stopPropagation(); toggleImageZoom(); }}
                     aria-label="დახურვა"
                   >
                     <X className="h-6 w-6" />
                   </button>
 
-                  <div className="flex flex-row items-center justify-center space-x-5 max-w-[95vw] max-h-[90vh]">
-                    {/* ვერტიკალური თამბნეილები მარცხნივ - მხოლოდ დესკტოპზე */}
-                    {hasMultipleImages && (
-                      <div className="hidden md:flex h-full items-center self-center z-10">
-                        <div className="flex flex-col gap-3 my-auto max-h-[80vh] overflow-y-auto py-2 pr-2">
-                          {product.images.map((image, index) => (
-                            <button
-                              key={index}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCurrentImageIndex(index);
-                              }}
-                              className={`w-28 h-28 overflow-hidden flex-shrink-0 ${
-                                index === currentImageIndex 
-                                ? 'border-[3px] border-primary shadow-md' 
-                                : 'border border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <Image
-                                src={image}
-                                alt={`${product.name} - thumbnail ${index + 1}`}
-                                width={112}
-                                height={112}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                                placeholder="blur"
-                                blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                              />
-                            </button>
-                          ))}
-                        </div>
+                  <div className="flex flex-col items-center justify-center w-full h-full max-w-[95vw] max-h-[95vh] px-2">
+                    {/* მოდალური ფოტოს კონტეინერი */}
+                    <div className="relative flex items-center justify-center w-full h-full">
+                      <div className="relative flex items-center justify-center">
+                        <img
+                          src={currentImage}
+                          alt={product?.name || ''}
+                          className="max-w-[90vw] max-h-[80vh] object-contain"
+                        />
                       </div>
-                    )}
-                    
-                    {/* მთავარი ფოტო კონტეინერი */}
-                    <div className="relative flex items-center justify-center">
-                      <Image
-                        src={currentImage}
-                        alt={product.name}
-                        width={1200}
-                        height={1200}
-                        className="max-h-[80vh] max-w-[78vw] md:max-w-[60vw] object-contain"
-                        loading="eager"
-                        placeholder="blur"
-                        blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                      />
                       
-                      {/* ნავიგაციის ღილაკები ფოტოზე */}
+                      {/* ნავიგაციის ღილაკები */}
                       {hasMultipleImages && (
                         <>
                           <button 
                             onClick={(e) => { e.stopPropagation(); prevImage(); }} 
-                            className="absolute -left-4 top-1/2 -translate-y-1/2 bg-white/95 shadow-lg text-gray-800 p-2.5 md:p-3.5 rounded-full flex items-center justify-center hover:bg-white transition-all z-10"
+                            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 md:p-3 rounded-full flex items-center justify-center transition-all z-10"
                             aria-label="წინა სურათი"
                           >
-                            <ChevronLeft className="h-6 w-6 md:h-7 md:w-7" />
+                            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
                           </button>
                           <button 
                             onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                            className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white/95 shadow-lg text-gray-800 p-2.5 md:p-3.5 rounded-full flex items-center justify-center hover:bg-white transition-all z-10"
+                            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 md:p-3 rounded-full flex items-center justify-center transition-all z-10"
                             aria-label="შემდეგი სურათი"
                           >
-                            <ChevronRight className="h-6 w-6 md:h-7 md:w-7" />
+                            <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
                           </button>
                         </>
                       )}
                     </div>
-                  </div>
 
-                  {/* ფოტოს ნომერი/ინდიკატორი */}
-                  {hasMultipleImages && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 z-10">
-                      <span className="hidden md:inline text-xs text-gray-300">
-                        <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">←</kbd>
-                        <kbd className="px-1.5 py-0.5 bg-gray-800 rounded ml-1">→</kbd>
-                      </span>
-                      <span>{currentImageIndex + 1} / {product.images.length}</span>
-                    </div>
-                  )}
+                    {/* თამბნეილების ქვედა პანელი - მობილურზეც და დესკტოპზეც */}
+                    {hasMultipleImages && loadedImages.length > 1 && (
+                      <div className="flex justify-center space-x-2 mt-2 pb-2 overflow-x-auto w-full max-w-[90vw]">
+                        {loadedImages.map((image, index) => (
+                          <button
+                            key={index}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentImageIndex(index);
+                            }}
+                            className={`flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded overflow-hidden ${
+                              index === currentImageIndex 
+                              ? 'ring-2 ring-white' 
+                              : 'opacity-60 hover:opacity-100'
+                            }`}
+                          >
+                            <img
+                              src={image}
+                              alt={`თამბნეილი ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ინდიკატორი */}
+                    {hasMultipleImages && (
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 z-10">
+                        <span>{currentImageIndex + 1} / {totalImageCount}</span>
+                      </div>
+                    )}
+                    
+                    {/* დავამატოთ მეტი ფოტოს ჩატვირთვის ღილაკი მოდალშიც */}
+                    {hasMoreImages && (
+                      <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10">
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            loadMoreImages();
+                          }}
+                          variant="outline"
+                          size="sm"
+                          disabled={isLoadingMoreImages}
+                          className="bg-black/40 hover:bg-black/60 text-white border-gray-700"
+                        >
+                          {isLoadingMoreImages ? "იტვირთება..." : "მეტი ფოტოს ჩატვირთვა"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -616,6 +831,11 @@ export default function ProductDetailPage() {
                   ) : (
                     <p className="text-2xl font-bold">{product.price} ₾</p>
                   )}
+                </div>
+
+                {/* მარაგის ბეჯი */}
+                <div className="my-3">
+                  {product && <ProductStockBadge productId={product.id} />}
                 </div>
                 
                 {/* Add to Cart Section */}
@@ -729,9 +949,86 @@ export default function ProductDetailPage() {
           )}
         </div>
       </div>
+      
+      {/* სწაიპერის სტილები */}
+      <style jsx global>{`
+        .product-main-swiper {
+          width: 100%;
+          height: 100%;
+          aspect-ratio: 1/1;
+          cursor: pointer;
+        }
+        
+        .product-main-swiper .swiper-slide {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          width: 100% !important;
+          height: 100% !important;
+          position: relative;
+        }
+        
+        .product-thumbs-swiper {
+          width: 100%;
+          height: auto;
+          margin-top: 15px;
+        }
+        
+        .product-thumbs-swiper .swiper-slide {
+          width: 80px !important;
+          height: 80px !important;
+          border-radius: 0.375rem;
+          overflow: hidden;
+          opacity: 0.7;
+          transition: opacity 0.3s ease;
+          position: relative;
+        }
+        
+        .product-thumbs-swiper .swiper-slide:hover {
+          opacity: 1;
+        }
+        
+        .product-thumbs-swiper .swiper-slide-thumb-active {
+          opacity: 1;
+          border: 2px solid #2563eb;
+        }
+        
+        .product-main-swiper .swiper-button-next,
+        .product-main-swiper .swiper-button-prev {
+          background-color: rgba(255, 255, 255, 0.8);
+          width: 35px;
+          height: 35px;
+          border-radius: 50%;
+          color: #333;
+        }
+        
+        .product-main-swiper .swiper-button-next:after,
+        .product-main-swiper .swiper-button-prev:after {
+          font-size: 15px;
+          font-weight: bold;
+        }
+        
+        .product-main-swiper .swiper-button-next:hover,
+        .product-main-swiper .swiper-button-prev:hover {
+          background-color: rgba(255, 255, 255, 1);
+        }
+        
+        .product-main-swiper .swiper-pagination-bullet {
+          width: 8px;
+          height: 8px;
+          background: #cbd5e1;
+          opacity: 0.5;
+        }
+        
+        .product-main-swiper .swiper-pagination-bullet-active {
+          background: #334155;
+          opacity: 1;
+        }
+      `}</style>
     </ShopLayout>
   );
-}
+});
 
 // Define the ZoomedImageModal component (or import if it's separate)
 const ZoomedImageModal = dynamic(() => Promise.resolve(({ 
@@ -764,18 +1061,19 @@ const ZoomedImageModal = dynamic(() => Promise.resolve(({
       
       <div className="w-full max-w-screen-lg h-[80vh] md:h-[85vh] relative bg-white rounded-lg p-2 sm:p-4 shadow-2xl flex items-center justify-center overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="relative w-full h-full flex items-center justify-center">
-          <Image
-            src={currentImage}
-            alt={productName}
-            className="max-h-full max-w-full object-contain"
-            width={1200}
-            height={1200}
-            style={{ objectFit: 'contain' }}
-            priority={false}
-            loading="lazy"
-            placeholder="blur"
-            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-          />
+          <div className="relative max-h-full max-w-full w-full h-full flex items-center justify-center">
+            <Image
+              src={currentImage}
+              alt={productName}
+              className="object-contain"
+              fill
+              style={{ objectFit: 'contain' }}
+              priority={false}
+              loading="lazy"
+              placeholder="blur"
+              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+            />
+          </div>
         </div>
         
         {hasMultipleImages && (
@@ -799,4 +1097,6 @@ const ZoomedImageModal = dynamic(() => Promise.resolve(({
       </div>
     </div>
   )
-}), { ssr: false, loading: () => <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"><div className="bg-white p-4 rounded-md">სურათი იტვირთება...</div></div> }); 
+}), { ssr: false, loading: () => <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"><div className="bg-white p-4 rounded-md">სურათი იტვირთება...</div></div> });
+
+export default ProductDetailPage; 

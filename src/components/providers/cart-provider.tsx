@@ -1,11 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { CartItem, Product } from '@/types';
+import { decrementStock, getProductStock } from '@/lib/firebase-service';
+import { toast } from '@/components/ui/use-toast';
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product) => Promise<void>;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -57,27 +59,79 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
 
-  const addToCart = (product: Product) => {
-    setItems(prevItems => {
-      const existingItem = prevItems.find(item => item.product.id === product.id);
+  // მემოიზებული addToCart ფუნქცია
+  const addToCart = useCallback(async (product: Product) => {
+    try {
+      // ვამოწმებთ მარაგს პროდუქტისთვის
+      const currentStock = await getProductStock(product.id);
+      const existingItem = items.find(item => item.product.id === product.id);
       
+      // თუ პროდუქტი უკვე კალათაშია, ვამოწმებთ საკმარისია თუ არა მარაგი რაოდენობის გასაზრდელად
       if (existingItem) {
-        return prevItems.map(item => 
-          item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 } 
-            : item
-        );
-      } else {
-        return [...prevItems, { product, quantity: 1 }];
+        if (currentStock <= existingItem.quantity) {
+          toast({
+            title: "მარაგი ამოწურულია",
+            description: "სამწუხაროდ, მოთხოვნილი რაოდენობა მარაგში არ არის",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (currentStock <= 0) {
+        // თუ პროდუქტი კალათაში არ არის და მარაგი 0-ია
+        toast({
+          title: "მარაგი ამოწურულია",
+          description: "სამწუხაროდ, პროდუქტი მარაგში აღარ არის",
+          variant: "destructive",
+        });
+        return;
       }
-    });
-  };
+      
+      // შევამციროთ მარაგი transaction-ის გამოყენებით
+      const success = await decrementStock(product.id);
+      
+      if (!success) {
+        toast({
+          title: "მარაგი ამოწურულია",
+          description: "სამწუხაროდ, პროდუქტი მარაგში აღარ არის",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // მარაგის წარმატებით შემცირების შემდეგ დავამატოთ კალათაში
+      setItems(prevItems => {
+        if (existingItem) {
+          return prevItems.map(item => 
+            item.product.id === product.id 
+              ? { ...item, quantity: item.quantity + 1 } 
+              : item
+          );
+        } else {
+          return [...prevItems, { product, quantity: 1 }];
+        }
+      });
+      
+      toast({
+        title: "პროდუქტი დაემატა",
+        description: "პროდუქტი წარმატებით დაემატა კალათაში",
+      });
+    } catch (error) {
+      console.error("Error adding product to cart:", error);
+      toast({
+        title: "შეცდომა",
+        description: "პროდუქტის დამატებისას დაფიქსირდა შეცდომა",
+        variant: "destructive",
+      });
+    }
+  }, [items]);
 
-  const removeFromCart = (productId: string) => {
+  // მემოიზებული removeFromCart ფუნქცია
+  const removeFromCart = useCallback((productId: string) => {
     setItems(prevItems => prevItems.filter(item => item.product.id !== productId));
-  };
+  }, []);
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  // მემოიზებული updateQuantity ფუნქცია
+  const updateQuantity = useCallback((productId: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
@@ -90,21 +144,30 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           : item
       )
     );
-  };
+  }, [removeFromCart]);
 
-  const clearCart = () => {
+  // მემოიზებული clearCart ფუნქცია
+  const clearCart = useCallback(() => {
     setItems([]);
-  };
+  }, []);
 
-  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
+  // მემოიზებული totalItems გამოთვლა
+  const totalItems = useMemo(() => 
+    items.reduce((total, item) => total + item.quantity, 0),
+    [items]
+  );
   
-  // საჯარო ფასდაკლების გათვალისწინება ჯამური ფასის გამოთვლისას
-  const totalPrice = items.reduce((total, item) => {
-    const itemPrice = calculateProductPrice(item.product);
-    return total + (itemPrice * item.quantity);
-  }, 0);
+  // მემოიზებული totalPrice გამოთვლა საჯარო ფასდაკლების გათვალისწინებით
+  const totalPrice = useMemo(() => 
+    items.reduce((total, item) => {
+      const itemPrice = calculateProductPrice(item.product);
+      return total + (itemPrice * item.quantity);
+    }, 0),
+    [items]
+  );
 
-  const value: CartContextType = {
+  // მემოიზებული კონტექსტის მნიშვნელობა, რომ არ მოხდეს ხელახალი შექმნა ყოველ რენდერზე
+  const value = useMemo<CartContextType>(() => ({
     items,
     addToCart,
     removeFromCart,
@@ -112,7 +175,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     clearCart,
     totalItems,
     totalPrice,
-  };
+  }), [items, addToCart, removeFromCart, updateQuantity, clearCart, totalItems, totalPrice]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }; 

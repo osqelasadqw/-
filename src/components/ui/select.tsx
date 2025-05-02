@@ -2,9 +2,15 @@
 
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon as LucideChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+
+// მემოიზებული აიკონები
+const ChevronDownIcon = React.memo(function ChevronDownIcon({ className }: { className?: string }) {
+  return <LucideChevronDownIcon className={className} />
+})
+ChevronDownIcon.displayName = "ChevronDownIcon"
 
 function Select({
   ...props

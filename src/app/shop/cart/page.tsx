@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ShopLayout } from '@/components/layouts/shop-layout';
@@ -11,16 +11,22 @@ import { Minus, Plus, X, ShoppingBag, ArrowLeft, Tag, AlertCircle, CheckCircle }
 import { getPromoCodes } from '@/lib/firebase-service';
 // import { PromoCode } from '@/types'; // Commented out problematic import
 import { toast } from 'sonner';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Product } from '@/types';
+import { formatPrice } from '@/lib/utils';
+
+interface PromoCode { id: string; code: string; discountPercentage: number; productId: string; }
 
 export default function CartPage() {
   const { items, updateQuantity, removeFromCart, totalItems, totalPrice } = useCart();
   const [promoCode, setPromoCode] = useState('');
   const [isPromoLoading, setIsPromoLoading] = useState(false);
-  const [activePromo, setActivePromo] = useState<any | null>(null); // Changed type to any
+  const [activePromo, setActivePromo] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   
   // პრომოკოდის გარეშე ჯამური ფასი
-  const rawTotalPrice = totalPrice;
+  const rawTotalPrice = useMemo(() => totalPrice, [totalPrice]);
   
   // პრომოკოდის გათვალისწინებით საბოლოო ფასი, დაცული გამოთვლა
   const finalTotal = useMemo(() => {
@@ -44,13 +50,11 @@ export default function CartPage() {
     return parseFloat(Math.max(rawTotalPrice - discountAmount, 0).toFixed(2));
   }, [rawTotalPrice, activePromo, items]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ka-GE', {
-      style: 'currency',
-      currency: 'GEL',
-    }).format(amount);
-  };
-  
+  // მემოიზებული ფასის ფორმატირების ფუნქცია
+  const formatCurrency = useCallback((amount: number) => {
+    return formatPrice(amount);
+  }, []);
+
   const handlePromoCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -76,14 +80,7 @@ export default function CartPage() {
         const matchingProduct = items.find(item => item.product.id === foundPromo.productId);
         
         if (matchingProduct) {
-          setActivePromo({
-            code: foundPromo.promoCode,
-            productId: foundPromo.productId,
-            discountPercentage: foundPromo.discountPercentage,
-            active: true,
-            createdAt: foundPromo.createdAt,
-            updatedAt: foundPromo.updatedAt
-          });
+          setActivePromo(foundPromo);
           toast.success('პრომოკოდი წარმატებით გააქტიურდა');
         } else {
           setPromoError('პრომოკოდი ვერ გააქტიურდა: შესაბამისი პროდუქტი არ არის კალათაში');
@@ -150,7 +147,87 @@ export default function CartPage() {
     }
   };
 
-  if (items.length === 0) {
+  // თუ კალათა ცარიელია
+  const isCartEmpty = useMemo(() => items.length === 0, [items]);
+
+  // მემოიზებული თითოეული პროდუქტის ღირებულების გამოთვლა
+  const calculateItemTotal = useCallback((price: number, quantity: number) => {
+    return price * quantity;
+  }, []);
+
+  // მემოიზებული რაოდენობის ცვლილების ფუნქცია
+  const handleQuantityChange = useCallback((productId: string, delta: number, currentQty: number) => {
+    const newQty = Math.max(1, currentQty + delta);
+    updateQuantity(productId, newQty);
+  }, [updateQuantity]);
+
+  // მემოიზებული კალათის სია
+  const cartItemsList = useMemo(() => (
+    <div className="space-y-4">
+      {items.map((item) => (
+        <div key={item.product.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-4 border-b">
+          <div className="flex items-center gap-4 mb-3 sm:mb-0">
+            <div className="relative w-16 h-16 rounded-md overflow-hidden">
+              <Image 
+                src={item.product.images[0] || "/placeholder.svg"} 
+                alt={item.product.name}
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div>
+              <h3 className="font-medium text-sm">{item.product.name}</h3>
+              <p className="text-sm text-muted-foreground">{formatCurrency(item.product.price)}</p>
+              {item.product.hasPublicDiscount && item.product.discountPercentage && (
+                <Badge variant="outline" className="mt-1 text-xs text-emerald-600 border-emerald-600">
+                  {item.product.discountPercentage}% ფასდაკლება
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 sm:gap-6">
+            <div className="flex items-center border rounded-md">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => handleQuantityChange(item.product.id, -1, item.quantity)}
+              >
+                <Minus className="h-3 w-3" />
+                <span className="sr-only">შემცირება</span>
+              </Button>
+              <span className="w-8 text-center text-sm">{item.quantity}</span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => handleQuantityChange(item.product.id, 1, item.quantity)}
+              >
+                <Plus className="h-3 w-3" />
+                <span className="sr-only">გაზრდა</span>
+              </Button>
+            </div>
+            
+            <div className="w-24 text-right">
+              <p className="font-medium">{formatCurrency(calculateItemTotal(item.product.price, item.quantity))}</p>
+            </div>
+            
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => removeFromCart(item.product.id)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">წაშლა</span>
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  ), [items, formatCurrency, handleQuantityChange, removeFromCart, calculateItemTotal]);
+
+  if (isCartEmpty) {
     return (
       <ShopLayout>
         <div className="flex flex-col items-center justify-center py-16">
@@ -182,94 +259,7 @@ export default function CartPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => {
-              // თუ ეს არის პროდუქტი, რომელზეც ვრცელდება პრომოკოდი
-              const hasPromoDiscount = activePromo && activePromo.productId === item.product.id;
-              
-              return (
-                <div 
-                  key={item.product.id} 
-                  className={`flex items-start space-x-4 border p-4 rounded-md ${hasPromoDiscount ? 'border-primary' : ''}`}
-                >
-                  <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border">
-                    <Image
-                      src={item.product.images[0] || 'https://placehold.co/400x400/eee/999?text=No+Image'}
-                      alt={item.product.name}
-                      width={96}
-                      height={96}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-
-                  <div className="flex flex-1 flex-col">
-                    <div className="flex justify-between">
-                      <div>
-                        <Link 
-                          href={`/shop/product/${item.product.id}`}
-                          className="font-medium hover:text-primary"
-                        >
-                          {item.product.name}
-                        </Link>
-                        
-                        {/* პრომოკოდის ბეჯი */}
-                        {hasPromoDiscount && (
-                          <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                            <Tag className="mr-1 h-3 w-3" />
-                            -{activePromo.discountPercentage}%
-                          </span>
-                        )}
-                      </div>
-                      <button 
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
-                      {item.product.description}
-                    </p>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div>
-                        {hasPromoDiscount ? (
-                          <div className="flex flex-col">
-                            <p className="text-sm line-through text-muted-foreground">
-                              {formatCurrency(item.product.price)}
-                            </p>
-                            <p className="font-medium text-primary">
-                              {formatCurrency(item.product.price * (1 - Math.min(Math.max(activePromo?.discountPercentage || 0, 0), 100) / 100))}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="font-medium">
-                            {formatCurrency(item.product.price)}
-                          </p>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center border rounded-md">
-                        <button
-                          type="button"
-                          className="p-1 hover:bg-gray-100"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <span className="px-3 text-sm">{item.quantity}</span>
-                        <button
-                          type="button"
-                          className="p-1 hover:bg-gray-100"
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {cartItemsList}
           </div>
 
           <div className="lg:col-span-1">
