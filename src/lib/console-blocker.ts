@@ -33,7 +33,7 @@ export function disableConsoleOutput() {
     // თუ საჭიროა კონსოლის ფუნქციონალის დაბრუნება (მაგ. დეველოპმენტში)
     return () => {
       Object.keys(originalConsole).forEach((key) => {
-        // @ts-ignore
+        // @ts-expect-error - window-ზე დინამიური ხასიათის პროპერტისთვის შიდა API-ს გამოყენება
         console[key] = originalConsole[key];
       });
     };

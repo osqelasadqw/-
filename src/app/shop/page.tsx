@@ -103,14 +103,12 @@ MemoizedChevronDown.displayName = 'MemoizedChevronDown';
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
   
-  return function(this: any, ...args: Parameters<T>) {
-    const context = this;
-    
+  return function(...args: Parameters<T>) {
     if (timeout) clearTimeout(timeout);
     
     timeout = setTimeout(() => {
       timeout = null;
-      func.apply(context, args);
+      func(...args);
     }, wait);
   };
 }
@@ -131,7 +129,7 @@ function applyFilters(
     
     // კატეგორია
     const inCategory = filters.categories.length === 0 || 
-                      filters.categories.includes(product.category);
+                      (product.categoryId && filters.categories.includes(product.categoryId));
     
     // ძიება
     const matchesSearch = !filters.searchTerm || 
@@ -476,7 +474,7 @@ export default function ShopPage() {
   const indexOfLastItem = currentPage * itemsPerPage;
 
   // მემოიზებული PriceRangeInputs კომპონენტი - გადაკეთებული კომპაქტური ვერსია
-  const PriceRangeInputs = memo(({isMobile}: {isMobile: boolean}) => {
+  const PriceRangeInputs = memo(function PriceRangeInputs({isMobile}: {isMobile: boolean}) {
     const idPrefix = isMobile ? 'mobile' : 'desktop';
     const minRef = isMobile ? minPriceMobileRef : minPriceRef;
     const maxRef = isMobile ? maxPriceMobileRef : maxPriceRef;
@@ -489,7 +487,7 @@ export default function ShopPage() {
       if (maxRef.current && temporaryPriceRange[1] !== undefined) {
         maxRef.current.value = temporaryPriceRange[1].toString();
       }
-    }, [temporaryPriceRange]);
+    }, [temporaryPriceRange, minRef, maxRef]);
     
     return (
       <div className="space-y-2">
@@ -520,26 +518,12 @@ export default function ShopPage() {
       </div>
     );
   });
+  PriceRangeInputs.displayName = 'PriceRangeInputs';
 
-  // მემოიზებული SearchInput კომპონენტი - კომპაქტური ვერსია
-  const SearchInput = memo(() => {
-    return (
-      <div className="space-y-2">
-        <h2 className="text-xs font-medium">ძიება</h2>
-        <input
-          ref={searchInputRef}
-          type="text"
-          placeholder="საძიებო სიტყვა..."
-          className="border rounded-md px-3 py-1 w-full text-sm"
-          value={tempSearchTerm}
-          onChange={(e) => setTempSearchTerm(e.target.value)}
-        />
-      </div>
-    );
-  });
+  // SearchInput კომპონენტი გამოუყენებელია, ამოღებულია
 
   // მემოიზებული SortSelector კომპონენტი - კომპაქტური ვერსია
-  const SortSelector = memo(() => {
+  const SortSelector = memo(function SortSelector() {
     return (
       <div className="space-y-2">
         <h2 className="text-xs font-medium">დახარისხება</h2>
@@ -579,9 +563,10 @@ export default function ShopPage() {
       </div>
     );
   });
+  SortSelector.displayName = 'SortSelector';
 
   // ფასდაკლებების მობილური ვერსიის ფილტრი
-  const MobileDiscountFilter = memo(() => {
+  const MobileDiscountFilter = memo(function MobileDiscountFilter() {
     return (
       <div className="flex items-center space-x-2 my-2">
         <Checkbox 
@@ -598,6 +583,7 @@ export default function ShopPage() {
       </div>
     );
   });
+  MobileDiscountFilter.displayName = 'MobileDiscountFilter';
 
   // სკროლის პოზიციის შესანარჩუნებელი ლოგიკა
   useEffect(() => {
@@ -673,20 +659,7 @@ export default function ShopPage() {
     }
   };
 
-  useEffect(() => {
-    function applyFiltersPureFunction(
-      allProducts: any[],
-      filters: any
-    ) {
-      // გაფილტვრის ლოგიკა
-      const filtered = allProducts.filter((product: any) => {
-        // this ცვლადის გამოყენება აღარ გვჭირდება
-        return true; // გაფილტვრის ლოგიკა აქ
-      });
-      return filtered;
-    }
-    // ... დანარჩენი კოდი ...
-  }, []);
+  // ფილტრის ფუნქცია უკვე გვაქვს ზემოთ, აღარ გვჭირდება დუბლირება
 
   return (
     <ShopLayout>
