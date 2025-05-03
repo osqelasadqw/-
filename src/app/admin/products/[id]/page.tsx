@@ -20,7 +20,14 @@ import {
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function ProductEditPage({ params }: { params: { id: string } }) {
+// შევცვალეთ ტიპი იმპორტით და გავხადეთ უფრო ზოგადი
+type Props = {
+  params: {
+    id: string;
+  };
+};
+
+export default function ProductEditPage({ params }: Props) {
   const router = useRouter();
   const { id } = params;
   const [product, setProduct] = useState<Partial<Product> | null>(null);
@@ -154,7 +161,13 @@ export default function ProductEditPage({ params }: { params: { id: string } }) 
               </div>
               
               <div className="flex items-center space-x-2 pt-2">
-                
+                <input
+                  type="checkbox"
+                  id="isSpecial"
+                  checked={isSpecial}
+                  onChange={(e) => setIsSpecial(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
                 <Label 
                   htmlFor="isSpecial" 
                   className="font-medium text-base cursor-pointer"
