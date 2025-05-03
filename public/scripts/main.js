@@ -2,47 +2,74 @@
  * ძირითადი JavaScript ფაილი პერფორმანსის გასაუმჯობესებლად
  */
 
-// Image-ების ლაზი ჩატვირთვა
+// სურათების ჩატვირთვის ანიმაციების პრობლემის ფიქსი
 document.addEventListener('DOMContentLoaded', function() {
-  // სურათების მონიშვნა როგორც "loaded" ჩატვირთვის შემდეგ
-  const handleImageLoad = (img) => {
-    img.classList.add('loaded');
-    img.style.opacity = '1';
-  };
-
-  // ლაზი ლოადინგის დამხმარე ფუნქცია
-  const setupLazyLoading = () => {
-    if ('IntersectionObserver' in window) {
-      const imageObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const img = entry.target;
-            const src = img.getAttribute('data-src');
-            if (src) {
-              img.src = src;
-              img.removeAttribute('data-src');
-              img.addEventListener('load', () => handleImageLoad(img));
+  // სურათების ფორსირებული ჩატვირთვა
+  const preloadImages = () => {
+    document.querySelectorAll('img').forEach(img => {
+      if (img.complete) {
+        // თუ სურათი უკვე ჩატვირთულია, შევამოწმოთ ლოადერი
+        const parent = img.closest('.relative');
+        if (parent) {
+          const loader = parent.querySelector('.animate-spin');
+          if (loader) {
+            loader.parentNode.style.display = 'none';
+          }
+        }
+      } else {
+        // თუ ჯერ არ ჩატვირთულა, დავამატოთ მოვლენა
+        img.addEventListener('load', function() {
+          const parent = img.closest('.relative');
+          if (parent) {
+            const loader = parent.querySelector('.animate-spin');
+            if (loader) {
+              loader.parentNode.style.display = 'none';
             }
-            imageObserver.unobserve(img);
           }
         });
-      });
-
-      document.querySelectorAll('img[data-src]').forEach(img => {
-        imageObserver.observe(img);
-      });
-    } else {
-      // ფოლბექი ძველი ბრაუზერებისთვის
-      document.querySelectorAll('img[data-src]').forEach(img => {
-        img.src = img.getAttribute('data-src');
-        img.removeAttribute('data-src');
-        img.addEventListener('load', () => handleImageLoad(img));
-      });
-    }
+        
+        // შეცდომის შემთხვევაშიც დავმალოთ ლოადერი
+        img.addEventListener('error', function() {
+          const parent = img.closest('.relative');
+          if (parent) {
+            const loader = parent.querySelector('.animate-spin');
+            if (loader) {
+              loader.parentNode.style.display = 'none';
+            }
+          }
+        });
+      }
+    });
   };
 
-  setupLazyLoading();
-
+  // გამოვიძახოთ თავიდანვე და შემდეგ პერიოდულად
+  preloadImages();
+  
+  // დავამატოთ დაკვირვება DOM ცვლილებებზე
+  const observer = new MutationObserver(mutations => {
+    let hasNewImages = false;
+    
+    mutations.forEach(mutation => {
+      if (mutation.type === 'childList' && mutation.addedNodes.length) {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeName === 'IMG' || 
+              (node.nodeType === 1 && node.querySelector('img'))) {
+            hasNewImages = true;
+          }
+        });
+      }
+    });
+    
+    if (hasNewImages) {
+      preloadImages();
+    }
+  });
+  
+  observer.observe(document.body, { 
+    childList: true, 
+    subtree: true 
+  });
+  
   // ფიქსირებული ზომების განსაზღვრა იმიჯ კონტეინერებისთვის
   const fixImageContainerSizes = () => {
     document.querySelectorAll('.image-container').forEach(container => {

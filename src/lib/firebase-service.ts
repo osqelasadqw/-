@@ -32,6 +32,161 @@ import {
   runTransaction 
 } from 'firebase/database';
 
+// დებაგინგის ინსტრუმენტები
+const DEBUG_MODE = false; // შეგიძლიათ გადართოთ false-ზე პროდაქშენში
+
+/**
+ * დეტალური დებაგინგის ფუნქცია Firebase ოპერაციებისთვის
+ * @param operation - ოპერაციის სახელი 
+ * @param message - ძირითადი შეტყობინება
+ * @param data - დამატებითი მონაცემები (არასავალდებულო)
+ */
+export const debugFirebase = (operation: string, message: string, data?: any) => {
+  if (!DEBUG_MODE) return;
+  
+  const timestamp = new Date().toISOString();
+  
+  console.group(`🔥 Firebase Debug [${timestamp}] - ${operation}`);
+  console.log(`📌 ${message}`);
+  
+  if (data) {
+    console.log('📊 Data:', typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
+  }
+  
+  // შედეგების დაკავშირება ბრაუზერის კონსოლში
+  console.groupEnd();
+};
+
+/**
+ * შეცდომების დეტალური ლოგირება Firebase-ისთვის
+ * @param operation - ოპერაციის სახელი
+ * @param error - Firebase-ის ან სხვა შეცდომის ობიექტი 
+ */
+export const logFirebaseError = (operation: string, error: any) => {
+  console.group(`❌ Firebase Error [${new Date().toISOString()}] - ${operation}`);
+  console.error('Error object:', error);
+  
+  // დეტალების გამოტანა
+  const details = {
+    name: error?.name || 'Unknown',
+    code: error?.code || 'No code',
+    message: error?.message || 'No message',
+    stack: error?.stack || 'No stack trace',
+    customData: error?.customData || 'No custom data',
+    serverResponse: error?.serverResponse || 'No server response'
+  };
+  
+  console.table(details);
+  console.groupEnd();
+  
+  return details; // შეცდომის დეტალების დაბრუნება შემდგომი დამუშავებისთვის
+};
+
+/**
+ * გააქტიურეთ ეს ფუნქცია, რომ დაიჭიროთ ყველა Firestore HTTP მოთხოვნა
+ * შენიშვნა: მხოლოდ დებაგისთვის გამოიყენეთ, შეამცირებს წარმადობას
+ */
+export const monitorFirestoreRequests = () => {
+  if (!DEBUG_MODE || typeof window === 'undefined') return;
+  
+  const originalFetch = window.fetch;
+  
+  window.fetch = function(input: RequestInfo | URL, init?: RequestInit) {
+    const startTime = Date.now();
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+    
+    // თუ Firestore-ის მოთხოვნაა და ეხება settings-ს, მხოლოდ მაშინ დავალოგოთ
+    if (url && url.includes('firestore.googleapis.com')) {
+      // ვამოწმებთ არის თუ არა ეს settings-ის განახლების მოთხოვნა
+      const isSettingsOperation = init?.body && typeof init.body === 'string' && 
+                                 (init.body.includes('settings/siteSettings') || 
+                                  init.body.includes('siteSettings'));
+      
+      // მხოლოდ მნიშვნელოვანი ოპერაციები დავალოგოთ
+      const isWriteOperation = init?.method === 'POST' && url.includes('/Write/');
+      const isErrorStatus = false; // ეს შეიცვლება Response-ის მიღების შემდეგ
+      
+      // დავალოგოთ მხოლოდ მნიშვნელოვანი ოპერაციები (settings-თან დაკავშირებული ან Write)
+      const shouldLog = isSettingsOperation || (isWriteOperation && init?.body && typeof init.body === 'string' && init.body.length > 100);
+      
+      if (shouldLog) {
+        console.group(`🔄 Firebase ${isSettingsOperation ? 'Settings' : 'Write'} Request [${new Date().toISOString()}]`);
+        console.log(`URL: ${url.substring(0, 100)}...`);
+        console.log('Method:', init?.method || 'GET');
+        
+        // ბოდის მოკლე ვერსია, რომ არ გადაივსოს კონსოლი
+        if (init?.body) {
+          try {
+            const bodyText = init.body.toString();
+            const shortBody = bodyText.length > 200 ? bodyText.substring(0, 200) + '...' : bodyText;
+            console.log('Request Body (preview):', shortBody);
+          } catch (e) {
+            console.log('Request Body: [Could not stringify body]');
+          }
+        }
+      }
+      
+      return originalFetch(input, init)
+        .then(response => {
+          const duration = Date.now() - startTime;
+          const hasError = !response.ok;
+          
+          // თუ შეცდომაა, ყოველთვის დავალოგოთ
+          if (shouldLog || hasError) {
+            console.log(`Response Status: ${response.status} ${response.statusText}`);
+            console.log(`Duration: ${duration}ms`);
+            
+            // კოპირება იმედი რომ შევინარჩუნოთ response ობიექტი
+            const clonedResponse = response.clone();
+            
+            // ვცდილობთ წავიკითხოთ პასუხი, თუ შესაძლებელია
+            clonedResponse.text()
+              .then(text => {
+                try {
+                  // მხოლოდ შეცდომები ან უჩვეულო პასუხები დავალოგოთ სრულად
+                  if (hasError || text.includes('error') || text.includes('Error')) {
+                    console.log('Response Body (preview):', text.substring(0, 500) + (text.length > 500 ? '...' : ''));
+                  } else {
+                    console.log('Response received successfully:', text.length, 'bytes');
+                  }
+                } catch (e) {
+                  console.log('Could not read response body');
+                }
+                console.groupEnd();
+              })
+              .catch(() => {
+                console.log('Could not read response body (stream already consumed)');
+                console.groupEnd();
+              });
+          }
+          
+          return response;
+        })
+        .catch(error => {
+          const duration = Date.now() - startTime;
+          // შეცდომები ყოველთვის დავალოგოთ
+          console.group(`❌ Firebase Request Error [${new Date().toISOString()}]`);
+          console.error(`Error: ${error?.message || 'Unknown error'}`);
+          console.log(`URL: ${url.substring(0, 100)}...`);
+          console.log(`Duration: ${duration}ms`);
+          console.groupEnd();
+          throw error;
+        });
+    }
+    
+    // არა-Firestore მოთხოვნებს ვაგრძელებთ ჩვეულებრივად
+    return originalFetch(input, init);
+  };
+  
+  console.log('🔍 Firebase მონიტორინგი გააქტიურდა - მხოლოდ მნიშვნელოვანი მოთხოვნები აისახება.');
+  
+  return () => {
+    // ფუნქცია მონიტორინგის გასათიშად
+    window.fetch = originalFetch;
+    console.log('🛑 Firebase HTTP მონიტორინგი გაითიშა.');
+  };
+};
+
 // Helper function to convert Firebase timestamp to milliseconds
 const convertTimestampToMillis = (timestamp: Timestamp) => {
   return timestamp.toMillis();
@@ -39,26 +194,193 @@ const convertTimestampToMillis = (timestamp: Timestamp) => {
 
 // Settings
 export const getSettings = async () => {
-  const docRef = doc(db, 'settings', 'siteSettings'); // Assuming a single document for all settings
-  const docSnap = await getDoc(docRef);
+  if (!db) {
+    console.error("Firebase Firestore is not initialized");
+    throw new Error("Firebase Firestore მონაცემთა ბაზა არ არის ინიციალიზებული");
+  }
   
-  if (docSnap.exists()) {
-    return docSnap.data();
-  } else {
-    // Return default values or empty object if no settings found
-    return { address: '', email: '', phone: '', aboutUsContent: '' }; 
+  try {
+    const docRef = doc(db, 'settings', 'siteSettings'); // Assuming a single document for all settings
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data();
+    } else {
+      // Return default values or empty object if no settings found
+      return { address: '', email: '', phone: '', aboutUsContent: '' }; 
+    }
+  } catch (error) {
+    console.error("Error fetching settings:", error);
+    throw new Error("პარამეტრების ჩატვირთვა ვერ მოხერხდა");
   }
 };
 
 export const updateSettings = async (settingsData: any) => {
-  const docRef = doc(db, 'settings', 'siteSettings');
-  try {
-    // Use setDoc with merge: true to create or update the document
-    await setDoc(docRef, settingsData, { merge: true });
-  } catch (error) {
-    console.error("Error updating settings:", error);
+  debugFirebase('updateSettings', 'Starting updateSettings function', { data: settingsData });
+  
+  if (!db) {
+    const error = new Error("Firebase Firestore მონაცემთა ბაზა არ არის ინიციალიზებული");
+    logFirebaseError('updateSettings', error);
     throw error;
   }
+  
+  if (!settingsData) {
+    const error = new Error("პარამეტრების მონაცემები არ არის მითითებული");
+    logFirebaseError('updateSettings', error);
+    throw error;
+  }
+  
+  // დავრწმუნდეთ, რომ ყველა მონაცემი ტექსტურ ფორმატშია
+  const formattedData: Record<string, string> = {};
+  
+  // გადავიაროთ ყველა ველზე და გადავაკონვერტიროთ ტექსტურ ფორმატში
+  Object.keys(settingsData).forEach(key => {
+    // გამოვტოვოთ undefined და null მნიშვნელობები
+    if (settingsData[key] === undefined || settingsData[key] === null) {
+      return;
+    }
+    
+    // ყველა მნიშვნელობა გადავიყვანოთ სტრინგად
+    formattedData[key] = String(settingsData[key]);
+  });
+  
+  console.group("🔍 Settings Update - Detailed Debug");
+  console.log("Original settings data:", settingsData);
+  console.log("Formatted settings data (all strings):", formattedData);
+  console.log("Settings keys:", Object.keys(formattedData));
+  console.log("Settings values:", Object.values(formattedData));
+  console.groupEnd();
+  
+  const docRef = doc(db, 'settings', 'siteSettings');
+  
+  // ვიზუალების ინფორმაცია სესიის გასაგებად
+  console.log("Firebase session info - docRef path:", docRef.path);
+  console.log("Firebase DB instance ID:", (db as any)._databaseId?.projectId || "unknown");
+  
+  // დამატებითი დიაგნოსტიკა Firestore კავშირისთვის
+  debugFirebase('updateSettings', 'Checking Firestore connection', {
+    docRefPath: docRef.path,
+    firestoreInstance: Boolean(db),
+    appName: (db as any)._appName || 'default',
+    settingsKeys: Object.keys(formattedData)
+  });
+  
+  // მაქსიმალური მცდელობების რაოდენობა
+  const MAX_RETRIES = 3;
+  let currentRetry = 0;
+  let lastError = null;
+  
+  while (currentRetry < MAX_RETRIES) {
+    try {
+      console.group(`🔄 Settings Update - Attempt #${currentRetry + 1}`);
+      console.log(`Starting attempt #${currentRetry + 1} for updating settings`);
+      console.log(`Attempt strategy: ${currentRetry === 0 ? 'setDoc with merge' : 
+                 currentRetry === 1 ? 'updateDoc' : 'setDoc without merge'}`);
+      console.log(`Current timestamp: ${new Date().toISOString()}`);
+      
+      debugFirebase('updateSettings', `Attempt #${currentRetry + 1} started`, {
+        strategy: currentRetry === 0 ? 'setDoc with merge' : 
+                 currentRetry === 1 ? 'updateDoc' : 'setDoc without merge'
+      });
+      
+      // setDoc ნაცვლად updateDoc-ს ვცდით, თუ პირველი არ იმუშავებს
+      // პირველ ეტაპზე ვცადოთ setDoc merge: true პარამეტრით
+      if (currentRetry === 0) {
+        console.log("Attempt #1: Using setDoc with merge: true");
+        console.time("setDoc_with_merge_execution_time");
+        await setDoc(docRef, formattedData, { merge: true });
+        console.timeEnd("setDoc_with_merge_execution_time");
+      } 
+      // მეორე ეტაპზე ვცადოთ updateDoc
+      else if (currentRetry === 1) {
+        console.log("Attempt #2: Using updateDoc");
+        console.time("updateDoc_execution_time");
+        await updateDoc(docRef, formattedData);
+        console.timeEnd("updateDoc_execution_time");
+      } 
+      // მესამე ეტაპზე ვცადოთ setDoc ახალი დოკუმენტის შექმნით
+      else {
+        console.log("Attempt #3: Using setDoc without merge");
+        console.time("setDoc_without_merge_execution_time");
+        await setDoc(docRef, {
+          ...formattedData,
+          updatedAt: new Date().toISOString()
+        });
+        console.timeEnd("setDoc_without_merge_execution_time");
+      }
+      
+      console.log("Settings updated successfully on attempt #", currentRetry + 1);
+      console.log("Final settings data:", formattedData);
+      console.groupEnd();
+      
+      debugFirebase('updateSettings', `Success on attempt #${currentRetry + 1}`, { settingsData: formattedData });
+      
+      // წარმატებული განახლება
+      return { success: true, data: formattedData };
+    } catch (error) {
+      lastError = error;
+      console.error(`Error updating settings (attempt ${currentRetry + 1}):`, error);
+      
+      // დებაგინგის ფუნქციის გამოძახება შეცდომის დასალოგად
+      logFirebaseError(`updateSettings (attempt ${currentRetry + 1})`, error);
+      
+      // დამატებითი დებაგინგი შეცდომის შესახებ
+      console.group(`❌ Settings Update Error - Attempt #${currentRetry + 1}`);
+      console.log("Error details:");
+      console.log("- Error name:", (error as any).name);
+      console.log("- Error code:", (error as any).code);
+      console.log("- Error message:", (error as any).message);
+      console.log("- Firebase context:", (error as any).customData?.context || "No context");
+      console.log("- Error stack:", (error as any).stack);
+      console.log("- Network details:", {
+        online: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+      });
+      console.groupEnd();
+      
+      currentRetry++;
+      
+      // მცირე დაყოვნება მცდელობებს შორის
+      if (currentRetry < MAX_RETRIES) {
+        const delay = 1000 * currentRetry; // პროგრესული დაყოვნება
+        console.log(`Waiting ${delay}ms before next attempt...`);
+        debugFirebase('updateSettings', `Retrying after delay`, { 
+          retryNumber: currentRetry, 
+          delayMs: delay,
+          nextStrategy: currentRetry === 1 ? 'updateDoc' : 'setDoc without merge'
+        });
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  // ყველა მცდელობა წარუმატებელი იყო
+  console.group("❌ Settings Update - All Attempts Failed");
+  console.error("All attempts to update settings failed. Last error:", lastError);
+  
+  // შეცდომის უფრო დეტალური ლოგი საბოლოო შეცდომისთვის
+  if (lastError) {
+    console.error("Final error details:", {
+      name: (lastError as any).name,
+      code: (lastError as any).code,
+      message: (lastError as any).message,
+      serverResponse: (lastError as any).serverResponse || "No server response",
+      customData: (lastError as any).customData || "No custom data"
+    });
+    
+    // ყველა მცდელობა დასრულდა - დეტალური დებაგის ინფო
+    debugFirebase('updateSettings', 'All attempts failed', {
+      attempts: MAX_RETRIES,
+      lastError: {
+        name: (lastError as any).name,
+        code: (lastError as any).code,
+        message: (lastError as any).message
+      }
+    });
+  }
+  console.groupEnd();
+  
+  throw lastError || new Error("პარამეტრების განახლება ვერ მოხერხდა");
 };
 
 // Categories
@@ -395,6 +717,7 @@ export const getUserRole = async (email: string): Promise<{isAdmin: boolean}> =>
 export const getAllUsers = async (): Promise<Array<{id: string, email: string, isAdmin: boolean, createdAt: number}>> => {
   try {
     const userRolesRef = collection(db, 'userRoles');
+    
     const userRolesSnapshot = await getDocs(userRolesRef);
     
     return userRolesSnapshot.docs.map(doc => ({
@@ -404,7 +727,6 @@ export const getAllUsers = async (): Promise<Array<{id: string, email: string, i
       createdAt: doc.data().createdAt ? convertTimestampToMillis(doc.data().createdAt) : Date.now()
     }));
   } catch (error) {
-    console.error('Error getting users:', error);
     return [];
   }
 };
@@ -427,12 +749,14 @@ export const updateUserRole = async (userId: string, isAdmin: boolean): Promise<
  * @param productId The ID of the product to get images for
  * @param startIndex The index to start getting images from (default: 0)
  * @param limit The maximum number of images to get (default: 10)
+ * @param gridColumns The number of columns to use for pagination (default: 2)
  * @returns Promise with array of image URLs
  */
 export const getPaginatedProductImages = async (
   productId: string,
   startIndex: number = 0,
-  limit: number = 10
+  limit: number = 10,
+  gridColumns: number = 2
 ): Promise<{images: string[], totalCount: number}> => {
   try {
     const productRef = doc(db, 'products', productId);
@@ -757,12 +1081,24 @@ export const updateProductStock = async (productId: string, stockCount: number):
 
 // მარაგის შემოწმება
 export const getProductStock = async (productId: string): Promise<number> => {
+  if (!productId) {
+    console.error('getProductStock: productId is undefined or empty');
+    return 0;
+  }
+  
+  if (!realtimeDb) {
+    console.error('getProductStock: realtimeDb is not initialized');
+    return 0;
+  }
+  
   try {
     const stockRef = rtdbRef(realtimeDb, `stock/${productId}`);
     const snapshot = await rtdbGet(stockRef);
     
     if (snapshot.exists()) {
-      return snapshot.val();
+      const stockValue = snapshot.val();
+      // უბრუნებს მხოლოდ რიცხვით მნიშვნელობას ან 0
+      return typeof stockValue === 'number' ? stockValue : 0;
     }
     return 0; // თუ არ არსებობს, ვაბრუნებთ 0
   } catch (error) {

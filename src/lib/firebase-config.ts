@@ -13,7 +13,7 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "https://your-project-id-default-rtdb.firebaseio.com"
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
 };
 
 // Initialize Firebase
@@ -31,8 +31,13 @@ if (typeof window !== 'undefined') {
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
-    analytics = getAnalytics(app);
     realtimeDb = getDatabase(app);
+    
+    // Analytics only in production to avoid development errors
+    if (process.env.NODE_ENV === 'production') {
+      analytics = getAnalytics(app);
+    }
+    
     googleProvider = new GoogleAuthProvider();
   } catch (error) {
     console.error("Firebase initialization error:", error);

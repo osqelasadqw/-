@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { CategoryDropdown } from '@/components/shop/category-dropdown';
 import { Category } from '@/types';
 import { getCategories, getUserRole, getSettings } from '@/lib/firebase-service';
-import { Menu, X, ShoppingBag, User, LogOut, LayoutDashboard, Search } from 'lucide-react';
+import { Menu, X, ShoppingBag, User, LogOut, LayoutDashboard, Search, MapPinIcon, MailIcon, PhoneIcon } from 'lucide-react';
 import { useCart } from '@/components/providers/cart-provider';
 import { auth } from '@/lib/firebase-config';
 import { signInWithGoogle, signOut } from '@/lib/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Input } from '@/components/ui/input';
 import SearchResults from '@/components/shop/search-results';
+import { cn } from '@/lib/utils';
 
 interface ShopLayoutProps {
   children: React.ReactNode;
@@ -29,17 +30,24 @@ interface SiteSettings {
 
 // ცალკე კომპონენტი სურათებისთვის - მემოიზებული
 const OptimizedImage = memo(({src, alt, width, height, className}: {src: string, alt: string, width: number, height: number, className?: string}) => {
+  const [isLoading, setIsLoading] = useState(true);
+
   return (
-    <div className="image-container">
+    <div className="relative w-full h-full">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
       <Image 
         src={src} 
         alt={alt} 
         width={width}
         height={height}
         className={className}
-        loading="lazy"
-        placeholder="blur"
-        blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEIQH/lZGLmAAAAABJRU5ErkJggg=="
+        onLoadingComplete={() => setIsLoading(false)}
+        onError={() => setIsLoading(false)}
+        priority
       />
     </div>
   );
@@ -163,14 +171,73 @@ MobileSearchSection.displayName = 'MobileSearchSection';
 
 // ფუტერის კომპონენტი - მემოიზებული წარმადობისთვის
 const FooterSection = memo(({ settings }: { settings: any }) => {
-  const emailInputId = React.useId();
-  const subscribeButtonId = React.useId();
   const year = new Date().getFullYear();
   
+  const footerNavItems = [
+    { href: '/shop', label: 'მთავარი' },
+    { href: '/shop/categories', label: 'კატეგორიები' },
+    { href: '/shop/about', label: 'ჩვენს შესახებ' },
+    { href: '/shop/promo-checker', label: 'პრომოკოდები' },
+  ];
+  
   return (
-    <footer className="bg-gray-800 text-gray-200 pt-12 pb-8">
+    <footer className="bg-gray-800 text-gray-300 pt-12 pb-8 mt-16">
       <div className="container mx-auto px-4">
-        {/* გადმოტანილი კოდი */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          {/* ჩვენს შესახებ */}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-4">OnLyne Store</h3>
+            <p className="text-sm text-gray-400 line-clamp-4">
+              {settings?.aboutUsContent || 'ჩვენ გთავაზობთ საუკეთესო ხარისხის პროდუქციას ხელმისაწვდომ ფასად. აღმოაჩინეთ მრავალფეროვანი არჩევანი ჩვენს ონლაინ მაღაზიაში.'}
+            </p>
+          </div>
+          
+          {/* სწრაფი ბმულები */}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-4">სწრაფი ბმულები</h3>
+            <ul className="space-y-2">
+              {footerNavItems.map((item) => (
+                <li key={item.href}>
+                  <Link 
+                    href={item.href} 
+                    className="text-sm hover:text-white transition-colors"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          {/* კონტაქტის ინფორმაცია */}
+          {(settings?.address || settings?.email || settings?.phone) && (
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">კონტაქტი</h3>
+              <ul className="space-y-2">
+                {settings?.address && (
+                  <li className="flex items-start text-sm">
+                    <MapPinIcon className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-primary" />
+                    <span>{settings.address}</span>
+                  </li>
+                )}
+                {settings?.email && (
+                  <li className="flex items-center text-sm">
+                    <MailIcon className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
+                    <a href={`mailto:${settings.email}`} className="hover:text-white transition-colors">{settings.email}</a>
+                  </li>
+                )}
+                {settings?.phone && (
+                  <li className="flex items-center text-sm">
+                    <PhoneIcon className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
+                    <a href={`tel:${settings.phone.replace(/\s/g, '')}`} className="hover:text-white transition-colors">{settings.phone}</a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
+        
+        {/* ფუტერის ბარი */}
         <div className="mt-12 pt-8 border-t border-gray-700">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-gray-400 text-sm mb-4 md:mb-0">

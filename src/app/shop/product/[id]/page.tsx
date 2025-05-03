@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ShopLayout } from '@/components/layouts/shop-layout';
-import { getProductById, getProductsByCategory, getPaginatedProductImages, MAX_DISPLAY_IMAGES } from '@/lib/firebase-service';
+import { getProductById, getProductsByCategory, getPaginatedProductImages, MAX_DISPLAY_IMAGES, getSettings } from '@/lib/firebase-service';
 import { Product } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/components/providers/cart-provider';
@@ -50,6 +50,12 @@ import 'swiper/css/thumbs';
 import 'swiper/css/free-mode';
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
+
+// დავამატოთ ინტერფეისი სისტემის პარამეტრებისთვის
+interface SiteSettings {
+  loadingType?: 'infinite' | 'button';
+  productsPerLoad?: number;
+}
 
 // მემოიზებული კომპონენტები რერენდერების შესამცირებლად
 const MemoizedPriceRangeInputs = React.memo(function PriceRangeInputs({
@@ -155,6 +161,16 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
   const [isLoadingMoreImages, setIsLoadingMoreImages] = useState<boolean>(false);
   const [hasMoreImages, setHasMoreImages] = useState<boolean>(false);
 
+  // სისტემის პარამეტრები
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
+    loadingType: 'infinite', // Default loading type
+    productsPerLoad: 10
+  });
+  
+  // ეკრანის ზომის სტეიტი და გრიდის სვეტების რაოდენობა
+  const [windowWidth, setWindowWidth] = useState(0);
+  const [gridColumns, setGridColumns] = useState(5); // დეფოლტ მნიშვნელობა
+
   // Filtering state for related products - გამოვიყენოთ მემოიზაცია საწყისი მნიშვნელობებისთვის
   const initialMinMaxPrice = useMemo(() => [0, 1000] as [number, number], []);
   const initialPriceRange = useMemo(() => [0, 0] as [number, number], []);
@@ -162,6 +178,9 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>(initialPriceRange);
   const [userModifiedRange, setUserModifiedRange] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+
+  // ახალი სტეიტი მსგავსი პროდუქტების ფეიჯინაციისთვის
+  const [visibleRelatedProductsCount, setVisibleRelatedProductsCount] = useState(0);
 
   // Define all memoized values and callbacks at the top level, before any conditional logic
   const defaultImage = useMemo(() => 'https://placehold.co/600x600/eee/999?text=No+Image', []);
@@ -172,6 +191,61 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
     }
     return loadedImages[currentImageIndex] || defaultImage;
   }, [loadedImages, currentImageIndex, defaultImage]);
+
+  // ახალი მეთოდი ეკრანის ზომის მიხედვით მაქს სვეტების გამოსათვლელად
+  const calculateGridColumns = useCallback((width: number) => {
+    if (width < 640) {
+      return 2; // მობილურზე 2 სვეტი (Related Products-ისთვის)
+    } else if (width < 768) {
+      return 3; // პატარა ტაბლეტზე 3 სვეტი
+    } else if (width < 1024) {
+      return 4; // დიდ ტაბლეტზე 4 სვეტი
+    } else if (width < 1280) {
+       return 4; // პატარა დესკტოპზე 4 (თუ ფილტრი ჩანს)
+    } else {
+       return 5; // დიდ დესკტოპზე 5 (თუ ფილტრი ჩანს)
+    }
+     // გავითვალისწინოთ ფილტრის ჩვენება/დამალვა დესკტოპზე
+    // const baseColumns = width < 1280 ? 4 : 5;
+    // return showFilters ? baseColumns : baseColumns + 1;
+  }, []);
+
+  // ეკრანის ზომის ცვლილებაზე რეაგირება
+  useEffect(() => {
+    const updateWindowWidth = () => {
+      const width = typeof window !== 'undefined' ? window.innerWidth : 0;
+      setWindowWidth(width);
+      setGridColumns(calculateGridColumns(width));
+    };
+    
+    updateWindowWidth(); // Initial call
+    window.addEventListener('resize', updateWindowWidth);
+    return () => window.removeEventListener('resize', updateWindowWidth);
+  }, [calculateGridColumns]); // Removed showFilters dependency for now
+
+  // სისტემის პარამეტრების წამოღება
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const fetchedSettings = await getSettings();
+        if (fetchedSettings) {
+          setSiteSettings({
+            loadingType: fetchedSettings.loadingType || 'infinite',
+            productsPerLoad: Number(fetchedSettings.productsPerLoad) || 10
+          });
+        }
+      } catch (error) {
+        console.error("Error loading settings in product page:", error);
+      }
+    };
+    loadSettings();
+  }, []);
+  
+  // დავაყენოთ თავდაპირველი ხილვადი პროდუქტების რაოდენობა პარამეტრების მიხედვით
+  useEffect(() => {
+    const initialCount = (siteSettings.productsPerLoad || 10) * gridColumns;
+    setVisibleRelatedProductsCount(initialCount);
+  }, [siteSettings.productsPerLoad, gridColumns]);
 
   // რელატედ სორტ ოფშენ სეტერის მემოიზაცია 
   const setRelatedSortOptionCallback = useCallback((option: SortOption) => {
@@ -254,13 +328,15 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
   const filteredAndSortedRelatedProducts = useMemo(() => {
     // First filter by price
     const filtered = relatedProducts.filter(product => {
-      return !userModifiedRange || (
+      // Filter by price range if user has modified it
+      const priceMatch = !userModifiedRange || (
         product.price >= priceRange[0] && 
         product.price <= priceRange[1]
       );
+      return priceMatch;
     });
     
-    // Clone the filtered array (always do this, never conditionally)
+    // Clone the filtered array
     const sorted = [...filtered];
     
     // Apply sorting based on option
@@ -273,12 +349,23 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
     } else if (relatedSortOption === 'name-desc') {
       sorted.sort((a: Product, b: Product) => b.name.localeCompare(a.name));
     }
-    // For 'newest' or default, we don't sort
+    // For 'newest' or default, we don't sort if the original order matters, 
+    // or we could sort by createdAt if available. Assuming original order is fine for 'newest'.
 
-    // Always return sorted array, never have multiple return paths
     return sorted;
   }, [relatedProducts, relatedSortOption, priceRange, userModifiedRange]);
   
+  // მსგავსი პროდუქტების საჩვენებელი ნაწილი
+  const visibleRelatedProducts = useMemo(() => {
+    return filteredAndSortedRelatedProducts.slice(0, visibleRelatedProductsCount);
+  }, [filteredAndSortedRelatedProducts, visibleRelatedProductsCount]);
+
+  // მეტი მსგავსი პროდუქტის ჩატვირთვის ფუნქცია
+  const loadMoreRelatedProducts = useCallback(() => {
+    const increment = (siteSettings.productsPerLoad || 10) * gridColumns;
+    setVisibleRelatedProductsCount(prevCount => prevCount + increment);
+  }, [siteSettings.productsPerLoad, gridColumns]);
+
   const handleThumbsSwiper = useCallback((swiper: any) => {
     setThumbsSwiper(swiper);
   }, []);
@@ -287,17 +374,24 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
     setCurrentImageIndex(swiper.activeIndex);
   }, []);
 
-  // ფოტოების ჩატვირთვის ფუნქცია
+  // ფოტოების ჩატვირთვის ფუნქცია გადავაკეთოთ, რომ გამოიყენოს სისტემის პარამეტრები
   const loadProductImages = useCallback(async (productId: string, startIndex: number = 0) => {
     try {
       setIsLoadingMoreImages(true);
-      const { images, totalCount } = await getPaginatedProductImages(productId, startIndex, MAX_DISPLAY_IMAGES);
+      
+      // ეს ეხება მთავარი პროდუქტის ფოტოებს, არა მსგავს პროდუქტებს
+      const mainImageLoadLimit = MAX_DISPLAY_IMAGES; // Can keep this separate if needed
+      
+      const { images, totalCount } = await getPaginatedProductImages(
+        productId, 
+        startIndex, 
+        mainImageLoadLimit // Using the specific limit for main product images
+        // gridColumns is not needed here as it was removed from the function signature
+      );
       
       if (startIndex === 0) {
-        // პირველი პაკეტის ჩატვირთვა
         setLoadedImages(images);
       } else {
-        // შემდგომი პაკეტების დამატება
         setLoadedImages(prev => [...prev, ...images]);
       }
       
@@ -310,7 +404,7 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
     }
   }, []);
 
-  // მეტი ფოტოს ჩატვირთვის ფუნქცია
+  // მეტი ფოტოს ჩატვირთვის ფუნქცია (მთავარი პროდუქტისთვის)
   const loadMoreImages = useCallback(() => {
     if (product && !isLoadingMoreImages && hasMoreImages) {
       loadProductImages(product.id, loadedImages.length);
@@ -592,7 +686,7 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                       <SwiperSlide key={`main-${index}`} className="aspect-square">
                         <div className="relative w-full h-full flex items-center justify-center">
                           {isPublicDiscount && index === 0 && (
-                            <div className="absolute top-4 right-4 z-10 bg-red-500 text-white px-2 py-1 rounded-md font-medium">
+                            <div className="absolute top-4 right-4 z-10 bg-red-600 text-white px-2 py-1 rounded-md font-medium">
                               {product?.discountPercentage}% ფასდაკლება
                             </div>
                           )}
@@ -628,15 +722,23 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                       className="product-thumbs-swiper"
                       breakpoints={{
                         0: {
-                          slidesPerView: 3.5,
+                          slidesPerView: Math.min(gridColumns, 2),
                           spaceBetween: 8,
                         },
                         480: {
-                          slidesPerView: 4.5,
+                          slidesPerView: Math.min(gridColumns, 3),
+                          spaceBetween: 10,
+                        },
+                        640: {
+                          slidesPerView: Math.min(gridColumns, 4),
                           spaceBetween: 10,
                         },
                         768: {
-                          slidesPerView: 5,
+                          slidesPerView: Math.min(gridColumns, 5),
+                          spaceBetween: 10,
+                        },
+                        1024: {
+                          slidesPerView: Math.min(gridColumns, 6),
                           spaceBetween: 10,
                         },
                       }}
@@ -691,7 +793,7 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                   onClick={toggleImageZoom}
                 >
                   {isPublicDiscount && (
-                    <div className="absolute top-4 right-4 z-10 bg-red-500 text-white px-2 py-1 rounded-md font-medium">
+                    <div className="absolute top-4 right-4 z-10 bg-red-600 text-white px-2 py-1 rounded-md font-medium">
                       {product?.discountPercentage}% ფასდაკლება
                     </div>
                   )}
@@ -857,7 +959,10 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
-                  <Button onClick={handleAddToCart} className="flex items-center gap-2">
+                  <Button 
+                    onClick={handleAddToCart} 
+                    className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white"
+                  >
                     <ShoppingCart className="h-4 w-4" />
                     <span>კალათში დამატება</span>
                   </Button>
@@ -898,12 +1003,11 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
           {relatedProducts.length > 0 && (
             <div className="mt-16">
               <h2 className="text-2xl font-bold tracking-tight mb-6">მსგავსი პროდუქტები</h2>
-              {filteredAndSortedRelatedProducts.length === 0 ? (
+              {visibleRelatedProducts.length === 0 && filteredAndSortedRelatedProducts.length > 0 ? ( // Adjusted condition
                 <div className="text-center py-12">
                   <h2 className="text-xl font-medium mb-2">მსგავსი პროდუქტები ვერ მოიძებნა</h2>
                   <p className="text-muted-foreground">
-                    ვერ მოიძებნა მსგავსი პროდუქტი თქვენი პარამეტრებით.
-                    შეცვალეთ ფილტრაციის პარამეტრები ან გაასუფთავეთ ფილტრი.
+                    ვერ მოიძებნა მსგავსი პროდუქტი თქვენი ფილტრაციის პარამეტრებით.
                   </p>
                   <Button 
                     className="mt-4"
@@ -914,36 +1018,63 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredAndSortedRelatedProducts.map((relatedProduct) => (
-                    <Link href={`/shop/product/${relatedProduct.id}`} key={relatedProduct.id} 
-                      onClick={() => window.scrollTo(0, 0)}
-                      className="group flex flex-col h-full border rounded-md overflow-hidden hover:shadow-md transition-shadow duration-300"
-                    >
-                      <div className="relative aspect-square overflow-hidden bg-gray-100">
-                        <Image
-                          src={relatedProduct.images && relatedProduct.images.length > 0 
-                            ? relatedProduct.images[0] 
-                            : defaultImage}
-                          alt={relatedProduct.name}
-                          fill={true}
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                          className="object-cover"
-                          loading="lazy"
-                          placeholder="blur"
-                          blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                        />
-                      </div>
-                      <div className="flex flex-col flex-grow p-4">
-                        <h3 className="font-medium text-lg mb-1">{relatedProduct.name}</h3>
-                        <p className="text-muted-foreground text-sm line-clamp-2 mb-2">{relatedProduct.description}</p>
-                        <div className="mt-auto">
-                          <span className="font-bold">{relatedProduct.price} ₾</span>
+                <>
+                  <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-${gridColumns} gap-4 sm:gap-5 md:gap-6`}>
+                    {visibleRelatedProducts.map((relatedProduct) => (
+                      <Link 
+                        href={`/shop/product/${relatedProduct.id}`} 
+                        key={relatedProduct.id} 
+                        onClick={() => window.scrollTo(0, 0)}
+                        className="group flex flex-col h-full border rounded-md overflow-hidden hover:shadow-md transition-shadow duration-300"
+                      >
+                        <div className="relative aspect-square overflow-hidden bg-gray-100">
+                          <Image
+                            src={relatedProduct.images && relatedProduct.images.length > 0 
+                              ? relatedProduct.images[0] 
+                              : defaultImage}
+                            alt={relatedProduct.name}
+                            fill={true}
+                            // განვაახლოთ sizes პროპორციულად gridColumns-ის მიხედვით
+                            sizes={`(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, ${100 / gridColumns}vw`}
+                            className="object-cover transition-transform duration-300 group-hover:scale-105" // Added scale effect
+                            loading="lazy"
+                            placeholder="blur"
+                            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                          />
                         </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                        <div className="flex flex-col flex-grow p-3"> {/* Adjusted padding */}
+                          <h3 className="font-medium text-base mb-1 line-clamp-2">{relatedProduct.name}</h3> {/* Adjusted text size and clamp */}
+                           {/* Optionally add description back if needed */}
+                           {/* <p className="text-muted-foreground text-xs line-clamp-2 mb-2">{relatedProduct.description}</p> */}
+                          <div className="mt-auto pt-1"> {/* Adjusted spacing */}
+                            <span className="font-semibold text-lg">{relatedProduct.price} ₾</span> {/* Adjusted text size */}
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                  
+                  {/* "მეტის ჩვენება" ღილაკი */}
+                  {siteSettings.loadingType === 'button' && visibleRelatedProductsCount < filteredAndSortedRelatedProducts.length && (
+                    <div className="mt-8 text-center">
+                      <Button 
+                        onClick={loadMoreRelatedProducts} 
+                        variant="outline"
+                        disabled={isLoadingMoreImages} // Can potentially reuse this state or add a specific one
+                      >
+                        {isLoadingMoreImages ? 'იტვირთება...' : 'მეტის ჩვენება'} 
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* აქ შეიძლება დაემატოს Infinite Scroll ლოგიკა loadingType === 'infinite'-სთვის */}
+                   {siteSettings.loadingType === 'infinite' && visibleRelatedProductsCount < filteredAndSortedRelatedProducts.length && (
+                     <div className="h-10"> 
+                       {/* Optional loading indicator */}
+                     </div>
+                   )}
+
+                </>
               )}
             </div>
           )}
@@ -1024,6 +1155,11 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
         .product-main-swiper .swiper-pagination-bullet-active {
           background: #334155;
           opacity: 1;
+        }
+        
+        // Adjust grid dynamically based on gridColumns state
+        .lg\:grid-cols-${gridColumns} {
+           grid-template-columns: repeat(${gridColumns}, minmax(0, 1fr));
         }
       `}</style>
     </ShopLayout>

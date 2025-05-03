@@ -9,21 +9,17 @@ export function cn(...inputs: ClassValue[]) {
  * დებაუნსი ფუნქცია - შეზღუდავს ფუნქციის გამოძახების სიხშირეს.
  * სასარგებლოა ძვირადღირებული ოპერაციებისთვის, როგორიცაა API ძახილები, input ველები, და ა.შ.
  */
-export function debounce<T extends (...args: any[]) => any>(
-  func: T, 
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-  
-  return function(this: any, ...args: Parameters<T>) {
-    const context = this;
-    
-    if (timeout) clearTimeout(timeout);
-    
-    timeout = setTimeout(() => {
-      timeout = null;
-      func.apply(context, args);
-    }, wait);
+export function debounce<F extends (...args: any[]) => any>(
+  func: F,
+  waitFor: number
+): (...args: Parameters<F>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  return function(...args: Parameters<F>): void {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
   };
 }
 
@@ -31,21 +27,19 @@ export function debounce<T extends (...args: any[]) => any>(
  * თროთლინგ ფუნქცია - შეზღუდავს ფუნქციის გამოძახების სიხშირეს, მაგრამ მაშინვე შეასრულებს პირველ გამოძახებას.
  * სასარგებლოა ისეთი ოპერაციებისთვის, როგორიცაა scroll ან resize ივენთების დამუშავება.
  */
-export function throttle<T extends (...args: any[]) => any>(
-  func: T,
-  limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean = false;
+export function throttle<F extends (...args: any[]) => any>(
+  func: F,
+  waitFor: number
+): (...args: Parameters<F>) => void {
+  let waiting = false;
   
-  return function(this: any, ...args: Parameters<T>) {
-    const context = this;
-    
-    if (!inThrottle) {
-      func.apply(context, args);
-      inThrottle = true;
+  return function(...args: Parameters<F>): void {
+    if (!waiting) {
+      func(...args);
+      waiting = true;
       setTimeout(() => {
-        inThrottle = false;
-      }, limit);
+        waiting = false;
+      }, waitFor);
     }
   };
 }

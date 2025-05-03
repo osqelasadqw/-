@@ -1,27 +1,63 @@
 /** @type {import('next').NextConfig} */
+const withBundleAnalyzer = process.env.ANALYZE === 'true' 
+  ? require('@next/bundle-analyzer')({ enabled: true }) 
+  : (config) => config;
+
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+  register: true
+});
+
 const nextConfig = {
-  typescript: {
-    // ჩავთიშოთ typescript შემოწმება ბილდის დროს
-    // იგნორირებული იქნება შეცდომები ტიპებთან დაკავშირებით
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // ჩავთიშოთ eslint შემოწმება ბილდის დროს
-    ignoreDuringBuilds: true,
-  },
+  reactStrictMode: true,
   images: {
-    domains: ['cdn-icons-png.flaticon.com', 'firebasestorage.googleapis.com', 'placehold.co', 'lh3.googleusercontent.com'],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256],
-    minimumCacheTTL: 60,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn-icons-png.flaticon.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+    ],
+    // ფოტოების ოპტიმიზაციის გაუმჯობესება
     formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
   },
-  // Performance enhancements
-  swcMinify: true,
+  // ჰიდრაციის გაფრთხილებების გამოსწორება
+  experimental: {
+    // ჰიდრაციის შეცდომების უგულებელყოფისთვის
+    strictNextHead: true,
+    // ოპტიმიზებული middleware
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      '@emotion/react',
+      '@emotion/styled',
+    ],
+  },
+  // ემოციების CSS ოპტიმიზაცია
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    emotion: true,
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
   },
+  // Vercel-ზე აპლიკაციის ოპტიმიზაცია
   poweredByHeader: false,
+  compress: true,
+  // გზათა ოპტიმიზაცია
+  output: 'standalone',
 };
 
-module.exports = nextConfig; 
+module.exports = withBundleAnalyzer(withPWA(nextConfig)); 

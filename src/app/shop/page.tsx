@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, Suspense, useMemo, useRef, memo } from 'react';
 import { ShopLayout } from '@/components/layouts/shop-layout';
 import { ProductCard } from '@/components/shop/product-card';
-import { getProducts, getProductsByCategory, getCategories } from '@/lib/firebase-service';
+import { getProducts, getProductsByCategory, getCategories, getSettings } from '@/lib/firebase-service';
 import { Product, Category } from '@/types';
 import { ShoppingCart, SlidersHorizontal, ArrowLeft, ArrowRight, ChevronLeft, ChevronDown, X, Filter as FilterIcon, FilterX } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
@@ -50,6 +50,11 @@ type SortOption = 'newest' | 'oldest' | 'price-asc' | 'price-desc';
 interface ShopPageProps {
   initialProducts: Product[];
   initialMinMaxPrice: [number, number];
+}
+
+interface SiteSettings {
+  loadingType: 'infinite' | 'button';
+  productsPerLoad: number;
 }
 
 // მემოიზებული SearchParamsSection კომპონენტი
@@ -110,6 +115,32 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (..
   };
 }
 
+// შეცვლილი applyFilters ფუნქცია, this-ის გარეშე
+function applyFilters(
+  allProducts: Product[],
+  filters: {
+    priceRange: [number, number];
+    categories: string[];
+    searchTerm: string;
+  }
+) {
+  return allProducts.filter((product) => {
+    // ფასი
+    const inPriceRange = product.price >= filters.priceRange[0] && 
+                        product.price <= filters.priceRange[1];
+    
+    // კატეგორია
+    const inCategory = filters.categories.length === 0 || 
+                      filters.categories.includes(product.category);
+    
+    // ძიება
+    const matchesSearch = !filters.searchTerm || 
+                        product.name.toLowerCase().includes(filters.searchTerm.toLowerCase());
+    
+    return inPriceRange && inCategory && matchesSearch;
+  });
+}
+
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -126,10 +157,18 @@ export default function ShopPage() {
   const [userModifiedRange, setUserModifiedRange] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('newest');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(12);
+  const [columnsPerView, setColumnsPerView] = useState(4);
+  const [itemsPerPage, setItemsPerPage] = useState(12 * 4);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // დავამატოთ სტეიტი, რომელიც აღრიცხავს, არსებობს თუ არა სპეციალური პროდუქტები
   const [hasSpecialProducts, setHasSpecialProducts] = useState<boolean | null>(null);
+
+  // სისტემის პარამეტრები
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
+    loadingType: 'infinite',
+    productsPerLoad: 20
+  });
 
   const { addToCart } = useCart();
 
@@ -154,14 +193,17 @@ export default function ShopPage() {
 
   // ფანჯრის სიმაღლის სტეიტი
   const [windowHeight, setWindowHeight] = useState(0);
+  const [windowWidth, setWindowWidth] = useState(0);
   
   // ზედა ნავიგაციის სიმაღლე გამოვიანგარიშოთ
   useEffect(() => {
-    // დავაყენოთ საწყისი window სიმაღლე
+    // დავაყენოთ საწყისი window სიმაღლე და სიგანე
     setWindowHeight(window.innerHeight);
+    setWindowWidth(window.innerWidth);
     
     const handleResize = () => {
       setWindowHeight(window.innerHeight);
+      setWindowWidth(window.innerWidth);
     };
     
     window.addEventListener('resize', handleResize);
@@ -169,6 +211,28 @@ export default function ShopPage() {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  // გამოვთვალოთ სვეტების რაოდენობა ეკრანის სიგანის მიხედვით
+  useEffect(() => {
+    // განვსაზღვროთ სვეტების რაოდენობა ეკრანის სიგანიდან
+    let columns = 4; // დეფოლტი - 4 სვეტი
+
+    if (windowWidth < 640) {
+      columns = 2; // მობილურზე 2 სვეტი
+    } else if (windowWidth < 1024) {
+      columns = 3; // ტაბლეტზე 3 სვეტი
+    } else if (windowWidth >= 1280) {
+      columns = showFilters ? 4 : 5; // დიდ ეკრანზე 4 ან 5 სვეტი, ფილტრის გამოჩენის მიხედვით
+    }
+
+    setColumnsPerView(columns);
+  }, [windowWidth, showFilters]);
+
+  // პროდუქტების რაოდენობის განახლება სვეტების რაოდენობისა და სისტემის პარამეტრების მიხედვით
+  useEffect(() => {
+    const rowsToLoad = siteSettings.productsPerLoad || 20;
+    setItemsPerPage(rowsToLoad * columnsPerView);
+  }, [columnsPerView, siteSettings.productsPerLoad]);
   
   // ფილტრის მაქსიმალური სიმაღლის გამოთვლა ეკრანის მიხედვით
   const filterTopPosition = useMemo(() => {
@@ -228,6 +292,18 @@ export default function ShopPage() {
     const fetchInitialData = async () => {
       setIsLoading(true);
       try {
+        // ჯერ ჩავტვირთოთ სისტემის პარამეტრები
+        const systemSettings = await getSettings();
+        if (systemSettings) {
+          // შევინახოთ მხოლოდ საჭირო პარამეტრები
+          const loadingSettings: SiteSettings = {
+            loadingType: systemSettings.loadingType || 'infinite',
+            productsPerLoad: systemSettings.productsPerLoad || 20
+          };
+          setSiteSettings(loadingSettings);
+        }
+
+        // პროდუქტებისა და კატეგორიების ჩატვირთვა
         let productsData: Product[] = [];
         const categoriesData = await getCategories();
         setCategories(categoriesData);
@@ -494,7 +570,7 @@ export default function ShopPage() {
             />
             <Label 
               htmlFor="show-discounted-desktop" 
-              className="text-xs"
+              className="text-xs whitespace-normal break-words max-w-[80px]"
             >
               ფასდაკლებული
             </Label>
@@ -515,7 +591,7 @@ export default function ShopPage() {
         />
         <Label 
           htmlFor="show-discounted-mobile"
-          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 whitespace-normal break-words max-w-[150px]"
         >
           მხოლოდ ფასდაკლებული
         </Label>
@@ -548,6 +624,70 @@ export default function ShopPage() {
     }
   }, [isLoading]);
 
+  // ინფინიტი სქროლის ლოგიკა
+  useEffect(() => {
+    // თუ ჩატვირთვის ტიპი არ არის ინფინიტი, მაშინ ეს ლოგიკა არ გვჭირდება
+    if (siteSettings.loadingType !== 'infinite') return;
+
+    // დებაუნსდ სქროლის ფუნქცია, რომ ზედმეტად ხშირად არ მოხდეს გამოძახება
+    const debouncedScrollHandler = debounce(() => {
+      // თუ მომხმარებელი მივიდა გვერდის ბოლომდე ან მიუახლოვდა ბოლოს (300px დაშორება)
+      if (
+        window.innerHeight + document.documentElement.scrollTop + 300 >=
+        document.documentElement.scrollHeight
+      ) {
+        // თუ არსებობს მეტი პროდუქტი ჩასატვირთად და არ მიმდინარეობს ჩატვირთვა
+        if (indexOfLastItem < filteredProducts.length && !isLoadingMore) {
+          setIsLoadingMore(true);
+          
+          // დავაყოვნოთ ცოტა დროით ანიმაციისთვის
+          setTimeout(() => {
+            setCurrentPage(prev => prev + 1);
+            setTimeout(() => {
+              setIsLoadingMore(false);
+            }, 200);
+          }, 500);
+        }
+      }
+    }, 100); // დებაუნსის დაყოვნება 100მს
+
+    // დავაკავშიროთ სქროლის მოვლენა
+    window.addEventListener('scroll', debouncedScrollHandler);
+
+    // გაწმენდა კომპონენტის unmount-ის დროს
+    return () => {
+      window.removeEventListener('scroll', debouncedScrollHandler);
+    };
+  }, [filteredProducts.length, indexOfLastItem, isLoadingMore, siteSettings.loadingType]);
+
+  const handleLoadMore = () => {
+    if (indexOfLastItem < filteredProducts.length && !isLoadingMore) {
+      setIsLoadingMore(true);
+      // დავაყოვნოთ ცოტა დროით ანიმაციისთვის
+      setTimeout(() => {
+        setCurrentPage(prev => prev + 1);
+        setTimeout(() => {
+          setIsLoadingMore(false);
+        }, 200);
+      }, 500);
+    }
+  };
+
+  useEffect(() => {
+    function applyFiltersPureFunction(
+      allProducts: any[],
+      filters: any
+    ) {
+      // გაფილტვრის ლოგიკა
+      const filtered = allProducts.filter((product: any) => {
+        // this ცვლადის გამოყენება აღარ გვჭირდება
+        return true; // გაფილტვრის ლოგიკა აქ
+      });
+      return filtered;
+    }
+    // ... დანარჩენი კოდი ...
+  }, []);
+
   return (
     <ShopLayout>
       <Suspense fallback={<div>Loading search parameters...</div>}>
@@ -575,25 +715,6 @@ export default function ShopPage() {
             )}
           </p>
           <div className="flex items-center gap-2">
-            {/* ფილტრის გამოჩენის ღილაკი მხოლოდ დესქტოპზე */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden md:flex items-center gap-1 text-xs"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              {showFilters ? (
-                <>
-                  <MemoizedFilterXIcon className="h-3.5 w-3.5" />
-                  <span>ფილტრის გამორთვა</span>
-                </>
-              ) : (
-                <>
-                  <MemoizedFilterIcon className="h-3.5 w-3.5" />
-                  <span>ფილტრის ჩართვა</span>
-                </>
-              )}
-            </Button>
             <Sheet>
               <SheetTrigger asChild>
                 <Button
@@ -811,6 +932,15 @@ export default function ShopPage() {
                       display: flex;
                       flex-direction: column;
                     }
+                    .loading-indicator-container {
+                      height: 60px;
+                      width: 100%;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      margin-top: 1rem;
+                      margin-bottom: 1rem;
+                    }
                     @media (min-width: 1280px) {
                       .product-grid {
                         grid-template-columns: repeat(4, 1fr);
@@ -862,6 +992,35 @@ export default function ShopPage() {
                       </div>
                     ))}
                   </div>
+                  
+                  {/* მეტი პროდუქტის ჩატვირთვის ინდიკატორი - მხოლოდ ჩატვირთვისას */}
+                  {isLoadingMore && (
+                    <div className="loading-indicator-container">
+                      <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+                    </div>
+                  )}
+                  
+                  {/* ყველა პროდუქტი ჩატვირთულია ინდიკატორი - მხოლოდ როცა ყველა ჩატვირთულია */}
+                  {!isLoadingMore && filteredProducts.length > 0 && indexOfLastItem >= filteredProducts.length && (
+                    <div className="loading-indicator-container">
+                      <div className="text-muted-foreground text-sm">
+                        ყველა პროდუქტი ჩატვირთულია
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* მეტის ჩატვირთვის ღილაკი - ჩანს მხოლოდ button ტიპის ჩატვირთვის შემთხვევაში */}
+                  {siteSettings.loadingType === 'button' && !isLoadingMore && filteredProducts.length > 0 && indexOfLastItem < filteredProducts.length && (
+                    <div className="loading-indicator-container">
+                      <Button 
+                        onClick={handleLoadMore} 
+                        variant="outline" 
+                        className="px-6"
+                      >
+                        მეტის ჩატვირთვა
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

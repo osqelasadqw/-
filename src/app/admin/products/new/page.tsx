@@ -545,9 +545,9 @@ export default function AddProductPage() {
                               {/* Delete button */} 
                               <button 
                                 type="button"
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-70 hover:opacity-100"
                                 onClick={() => removeImage(index)}
-                                disabled={isSubmitting || isUploading}
+                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-70 hover:opacity-100"
+                                aria-label={`წაშალე სურათი ${index + 1}`}
                               >
                                 <X className="h-4 w-4" />
                               </button>

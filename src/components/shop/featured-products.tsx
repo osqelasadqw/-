@@ -5,7 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Star, ShoppingCart } from "lucide-react"
 import { Swiper, SwiperSlide } from 'swiper/react'
-import { Navigation, Pagination, FreeMode, Scrollbar } from 'swiper/modules'
+import { Navigation, Pagination, FreeMode, Scrollbar, Autoplay } from 'swiper/modules'
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -113,7 +113,7 @@ const FeaturedProductCard = memo(({
   return (
     <div className="group relative overflow-hidden rounded-lg border bg-background hover:shadow-md transition-all h-full">
       <div className="absolute top-2 left-2 z-20">
-        <Badge className="bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 text-xs text-white">გამორჩეული</Badge>
+        <Badge className="bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 text-xs text-black">გამორჩეული</Badge>
       </div>
       <div className="w-full relative overflow-hidden">
         <Link href={productUrl} className="block w-full aspect-square bg-white">
@@ -280,17 +280,11 @@ const SpecialProductCard = memo(({
   return (
     <div className="relative overflow-hidden rounded-lg sm:rounded-xl group">
       <div className="absolute top-2 sm:top-3 left-2 sm:left-3 z-20">
-        <Badge className="bg-rose-500 hover:bg-rose-600 px-2 py-1 text-xs text-white">განსაკუთრებული შეთავაზება</Badge>
+        <Badge className="bg-rose-500 hover:bg-rose-600 px-2 py-1 text-xs text-black">განსაკუთრებული შეთავაზება</Badge>
       </div>
       <div className="grid md:grid-cols-2 gap-4 bg-gradient-to-r from-rose-50 to-rose-100 dark:from-rose-950/20 dark:to-rose-900/20 p-3 sm:p-5 rounded-lg">
         <div className="flex flex-col justify-center">
-          <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 line-clamp-2 overflow-hidden text-ellipsis">{product.name}</h3>
-          <div className="flex items-center mb-2">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} className="h-3 sm:h-4 w-3 sm:w-4 fill-yellow-400 text-yellow-400" />
-            ))}
-            <span className="ml-1 sm:ml-2 text-xs text-muted-foreground">(128 შეფასება)</span>
-          </div>
+          <p className="text-lg sm:text-xl md:text-2xl font-bold mb-2 line-clamp-2 overflow-hidden text-ellipsis">{product.name}</p>
           <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-3 sm:line-clamp-4 overflow-hidden">
             {product.description}
           </p>
@@ -313,7 +307,7 @@ const SpecialProductCard = memo(({
           )}
           <Button 
             size="sm" 
-            className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-xs sm:text-sm"
+            className="w-full sm:w-auto bg-rose-700 hover:bg-rose-800 text-white text-xs sm:text-sm"
             onClick={handleAddToCart}
           >
             კალათაში დამატება
@@ -381,16 +375,25 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
 
   // მემოიზებული Swiper კონფიგურაცია - გადმოვიტანეთ isLoading-ის შემოწმებამდე
   const featuredSwiperSettings = useMemo(() => ({
-    modules: [Navigation, Pagination],
+    modules: [Navigation, Pagination, Autoplay],
     spaceBetween: 16,
     slidesPerView: 1,
-    speed: 600, // ანიმაციის სიჩქარე (ms)
+    speed: 800, // ანიმაციის სიჩქარე (ms)
     centeredSlides: false,
-    pagination: { clickable: true },
+    pagination: { 
+      clickable: true,
+      dynamicBullets: true,
+      dynamicMainBullets: 3,
+    },
     navigation: {
       enabled: true,
       nextEl: '.featured-button-next',
       prevEl: '.featured-button-prev'
+    },
+    autoplay: {
+      delay: 5000,
+      disableOnInteraction: false,
+      pauseOnMouseEnter: true
     },
     passiveListeners: true,
     preventClicks: false,
@@ -436,15 +439,24 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
 
   // მემოიზებული Swiper კონფიგურაცია ახალი კოლექციისთვის - გადმოვიტანეთ isLoading-ის შემოწმებამდე
   const newCollectionSwiperSettings = useMemo(() => ({
-    modules: [Pagination, FreeMode, Navigation],
+    modules: [Pagination, FreeMode, Navigation, Autoplay],
     spaceBetween: 16,
     slidesPerView: 2.2,
     speed: 600, // ანიმაციის სიჩქარე (ms)
-    pagination: { clickable: true },
+    pagination: { 
+      clickable: true,
+      dynamicBullets: true,
+      dynamicMainBullets: 3,
+    },
     navigation: {
       enabled: true,
       nextEl: '.new-collection-button-next',
       prevEl: '.new-collection-button-prev'
+    },
+    autoplay: {
+      delay: 6000,
+      disableOnInteraction: false,
+      pauseOnMouseEnter: true
     },
     freeMode: {
       enabled: true,
@@ -586,18 +598,29 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
   
   // მემოიზებული Swiper კონფიგურაცია სპეციალური პროდუქტებისთვის
   const specialSwiperSettings = useMemo(() => ({
-    modules: [Navigation],
+    modules: [Navigation, Pagination, Autoplay],
     spaceBetween: 10,
     slidesPerView: 1,
+    speed: 500,
     centeredSlides: true,
+    pagination: { 
+      clickable: true, 
+      dynamicBullets: true,
+      dynamicMainBullets: 3,
+    },
     navigation: {
       enabled: true,
       nextEl: '.special-swiper-button-next',
       prevEl: '.special-swiper-button-prev'
     },
+    autoplay: {
+      delay: 4000,
+      disableOnInteraction: false,
+      pauseOnMouseEnter: true
+    },
     passiveListeners: true,
     preventClicks: false,
-    // loop: productState.special.length >= 3, // დავაკომენტაროთ loop ტესტირებისთვის
+    loop: true,
     className: "specialProductSwiper"
   }), [productState.special.length]); // დამოკიდებულება specialProducts-ის სიგრძეზე
 
@@ -664,7 +687,7 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
         {/* Wrapper for SpecialProductSection container with fade-in (no delay) */}
         <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
           {/* კონტეინერი SpecialProductSection-ისთვის მინიმალური სიმაღლით */}
-          <div className="min-h-[400px] mb-3 sm:mb-4"> 
+          <div className="special-product-container mb-3 sm:mb-4"> 
             {productState.isLoading ? (
                <div className="h-full w-full bg-muted animate-pulse rounded-lg sm:rounded-xl"></div> // Skeleton Placeholder
              ) : (
@@ -705,37 +728,187 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
         .specialProductSwiper { /* Explicitly remove padding for special swiper */
           padding-bottom: 0 !important; 
         }
-        /* Pagination styles ONLY for featured and new collection */
+        
+        /* სპეციალური პროდუქტის კომპონენტის StackingContext-ის გასასწორებელი სტილი */
+        .specialProductSwiperContainer, 
+        .specialProductSwiper, 
+        .specialProductSwiper .swiper-wrapper {
+          z-index: auto !important;
+        }
+        
+        /* სპეციალური პროდუქტების გარეთა კონტეინერის სტილები */
+        .specialProductSwiperContainer {
+          display: block !important;
+          position: relative !important;
+          padding-bottom: 0 !important;
+        }
+        
+        /* ხედვის ზონების გასასწორებელი სტილები - მედია ბრეიქპოინტები */
+        @media screen and (min-width: 668px) and (max-width: 1222px) {
+          /* გავასწოროთ პრობლემა ამ კონკრეტულ რეზოლუციაზე */
+          .special-product-container {
+            margin-bottom: 0.5rem !important;
+          }
+          
+          /* დავაბრუნოთ swiper-ები inline-block-ად, რომ დავიცვათ ნორმალური განლაგება */
+          .specialProductSwiper, 
+          .featuredSwiper,
+          .newCollectionSwiper {
+            display: block !important;
+            vertical-align: top !important;
+          }
+          
+          /* დავრწმუნდეთ, რომ გამორჩეული პროდუქტების სლაიდერი იწყება მაშინვე, როგორც კი სპეციალური პროდუქტი მთავრდება */
+          .featuredSwiper {
+            margin-top: 0 !important;
+          }
+          
+          /* ყველა wrapper-ის სტილების ჩასწორება */
+          section > div > div {
+            margin-bottom: 0 !important;
+          }
+          
+          section > div > div + div {
+            margin-top: 0 !important;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          /* მობილურზე ვასწორებთ swiper-ის მარჯინებს */
+          .specialProductSwiperContainer {
+            margin-bottom: 0.25rem !important;
+          }
+          
+          .featuredSwiper {
+            margin-top: 0.25rem !important;
+          }
+        }
+        
+        /* სპეციალური პროდუქტის კონტეინერი - გავასწოროთ სიმაღლე */
+        .special-product-container {
+          min-height: auto;
+          height: auto;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        /* დივების მჭიდროდ განლაგება ერთმანეთზე */
+        .specialProductSwiperContainer {
+          margin-bottom: 0 !important;
+        }
+        
+        /* მთავარი სექცია - დავხვეწოთ საშუალო ეკრანებისთვის */
+        @media (min-width: 668px) and (max-width: 1222px) {
+          .special-product-container {
+            height: auto;
+          }
+          
+          /* დავრწმუნდეთ, რომ გამოჩეული პროდუქტების სლაიდერი მიჰყვება სპეციალურს */
+          .specialProductSwiperContainer + div {
+            margin-top: 0;
+          }
+          
+          /* შემცირდეს ზედა სექციის და ქვედა სექციებს შორის მანძილი */
+          section > div > div + div {
+            margin-top: 0 !important;
+          }
+          
+          /* შევამციროთ გამორჩეული პროდუქტების სექციის margin-ები */
+          .featuredSwiper {
+            margin-top: 0.25rem !important;
+          }
+        }
+        
+        /* პატარა ეკრანებისთვის სტილი */
+        @media (max-width: 667px) {
+          .special-product-container {
+            min-height: auto;
+          }
+          
+          /* შემცირდეს ზედა სექციის და ქვედა სექციებს შორის მანძილი */
+          .featuredSwiper {
+            margin-top: 0 !important;
+          }
+          
+          /* გადავაწყოთ section */
+          section.py-3 {
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
+          }
+        }
+        
+        /* დარწმუნდეთ, რომ სლაიდერებს შორის არ იქნება ზედმეტი სივრცე */
+        section > div > div {
+          margin-bottom: 0.5rem;
+        }
+        
+        /* უზრუნველვყოთ მჭიდრო მიდევნება სპეციალურსა და ფიჩერდ სლაიდერებს შორის */
+        .special-product-container + div {
+          margin-top: -0.5rem !important;
+        }
+        
+        /* Pagination styles for all swipers */
         .featuredSwiper .swiper-pagination,
-        .newCollectionSwiper .swiper-pagination {
+        .newCollectionSwiper .swiper-pagination,
+        .specialProductSwiper .swiper-pagination {
           bottom: 0; /* Position pagination at the bottom */
+          transition: opacity 0.3s;
         }
         .featuredSwiper .swiper-pagination-bullet,
-        .newCollectionSwiper .swiper-pagination-bullet {
-          width: 5px;
-          height: 5px;
+        .newCollectionSwiper .swiper-pagination-bullet,
+        .specialProductSwiper .swiper-pagination-bullet {
+          width: 6px;
+          height: 6px;
           background: #cbd5e1;
           opacity: 0.5;
-          transition: opacity 0.2s, background-color 0.2s;
+          transition: all 0.3s;
+          margin: 0 3px;
         }
         .featuredSwiper .swiper-pagination-bullet-active,
-        .newCollectionSwiper .swiper-pagination-bullet-active {
+        .newCollectionSwiper .swiper-pagination-bullet-active,
+        .specialProductSwiper .swiper-pagination-bullet-active {
           background: #334155;
           opacity: 1;
+          width: 8px;
+          height: 8px;
         }
-        .specialProductSwiper .swiper-pagination { /* Hide pagination for special swiper - Try 1*/
-           display: none !important;
+        /* გამორჩეული ბულეტებისთვის */
+        .swiper-pagination-bullet-active-main {
+          transform: scale(1.2);
         }
-        /* Just in case the above doesn't work, try hiding the bullets directly - Try 2 */
-        .specialProductSwiper .swiper-pagination-bullet {
-          display: none !important;
+        
+        /* სლაიდერის ანიმაციის ტრანზიშენი გავამდიდროთ */
+        .swiper-slide {
+          transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.5, 1);
         }
-        /* And hide the container within the specific parent - Try 3 */
-        .specialProductSwiperContainer .swiper-pagination {
-           display: none !important;
+        
+        /* დარწმუნდეთ, რომ სლაიდერებს შორის არ იქნება ზედმეტი სივრცე */
+        section > div > div {
+          margin-bottom: 0.5rem;
+        }
+        
+        /* გადავაწყოთ სლაიდერების ერთმანეთზე მჭიდროდ მიკვრა */
+        .featuredSwiper,
+        .newCollectionSwiper,
+        .specialProductSwiper {
+          margin-bottom: 0 !important;
         }
 
-        /* Keep other styles as they are */
+        /* გამორჩეული ელემენტები დავრწმუნდეთ რომ ყველა ზომაზე ჩანს */
+        .featuredSwiper .swiper-slide, 
+        .newCollectionSwiper .swiper-slide {
+          padding: 5px !important;
+          box-sizing: border-box !important;
+        }
+
+        /* გავზარდოთ ღილაკების მხედველობის არე */
+        .featured-button-prev, 
+        .featured-button-next,
+        .new-collection-button-prev,
+        .new-collection-button-next {
+          z-index: 10 !important;
+        }
 
         .newCollectionSwiper .swiper-slide {
           height: auto !important;
@@ -774,21 +947,27 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
           max-width: none;
         }
         
-        /* სპეციალური პროდუქტების სლაიდერის ნავიგაცია */
+        /* სპეციალური პროდუქტების სლაიდერის ნავიგაცია - დავხვეწოთ */
         .specialProductSwiperContainer .swiper-button-prev,
         .specialProductSwiperContainer .swiper-button-next {
           opacity: 0;
-          transition: opacity 0.3s ease;
-          color: #4b5563; /* მუქი ნაცრისფერი */
+          transition: all 0.3s ease;
+          color: #ffffff;
           width: 40px;
           height: 40px;
-          background-color: rgba(255, 255, 255, 0.7);
+          background-color: rgba(0, 0, 0, 0.3);
           border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          transform: translateY(-50%);
         }
         .specialProductSwiperContainer:hover .swiper-button-prev,
         .specialProductSwiperContainer:hover .swiper-button-next {
+          opacity: 0.8;
+        }
+        .specialProductSwiperContainer .swiper-button-prev:hover,
+        .specialProductSwiperContainer .swiper-button-next:hover {
           opacity: 1;
+          background-color: rgba(0, 0, 0, 0.5);
         }
         .specialProductSwiperContainer .swiper-button-prev:after,
         .specialProductSwiperContainer .swiper-button-next:after {
@@ -867,223 +1046,6 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
         }
         .featured-button-next {
           right: 5px;
-        }
-        
-        /* დამატებითი breakpoint-ები სრული სიგანისთვის */
-        @media (min-width: 1280px) {
-          .full-width-section .featuredSwiper .swiper-wrapper,
-          .full-width-section .newCollectionSwiper .swiper-wrapper {
-            justify-content: space-between;
-          }
-          .full-width-section .container {
-            padding-left: 0 !important;
-            padding-right: 2rem;
-          }
-          .container-full {
-            padding-left: 0 !important;
-            margin-left: 0 !important;
-            width: 100vw !important;
-          }
-          .full-width-section .featuredSwiper .swiper-slide {
-            width: auto !important;
-          }
-          .full-width-section .newCollectionSwiper .swiper-slide {
-            width: auto !important;
-          }
-        }
-        
-        @media (min-width: 1400px) {
-          .full-width-section .featuredSwiper .swiper-wrapper {
-            padding-left: 0;
-            padding-right: 0.5rem;
-          }
-        }
-
-        /* ახალი სტილები ელემენტების ზომების გასაზრდელად */
-        .featuredSwiper .swiper-slide {
-          height: 100%;
-          width: 100%;
-          max-width: 100%;
-          padding: 5px;
-        }
-        
-        .newCollectionSwiper .swiper-slide {
-          height: 100%;
-          width: 100%;
-          max-width: 100%;
-          padding: 5px;
-        }
-        
-        /* დამატებითი სტილები მობილურზე */
-        @media (max-width: 640px) {
-          .featuredSwiper .swiper-slide {
-            width: calc(100% - 10px) !important;
-            height: auto !important;
-            min-height: unset !important;
-          }
-          .newCollectionSwiper .swiper-slide {
-            width: calc(50% - 10px) !important;
-            height: auto !important;
-            min-height: unset !important;
-          }
-        }
-        
-        /* ფულსკრინ რეჟიმის დამატებითი სტილები */
-        .full-width-section {
-          padding-left: 0 !important;
-          padding-right: 1rem;
-          margin-left: 0 !important;
-          width: 100% !important;
-          overflow: visible !important;
-        }
-        
-        .container-full {
-          padding-left: 0 !important;
-          max-width: 100% !important;
-          width: 100% !important;
-          overflow: visible !important;
-        }
-        
-        .full-width-section .featuredSwiper .swiper-slide,
-        .full-width-section .newCollectionSwiper .swiper-slide {
-          width: auto !important;
-          min-width: 250px;
-          overflow: hidden !important;
-        }
-        
-        .full-width-section .featured-slide,
-        .full-width-section .new-collection-slide {
-          height: auto !important;
-          overflow: hidden !important;
-        }
-        
-        /* მნიშვნელოვანი ზომის ცვლილება ფულსკრინ რეჟიმში */
-        @media (min-width: 1024px) {
-          .full-width-section .featuredSwiper {
-            padding: 10px;
-            padding-left: 0 !important;
-          }
-          
-          .full-width-section .newCollectionSwiper {
-            padding: 10px;
-            padding-left: 0 !important;
-          }
-          
-          .full-width-section .featuredSwiper .swiper-slide {
-            min-width: 320px !important;
-          }
-          
-          .full-width-section .newCollectionSwiper .swiper-slide {
-            min-width: 250px !important;
-          }
-        }
-        
-        @media (min-width: 1280px) {
-          .full-width-section .featuredSwiper .swiper-slide {
-            min-width: 350px !important;
-          }
-          
-          .full-width-section .newCollectionSwiper .swiper-slide {
-            min-width: 270px !important;
-          }
-          
-          .full-width-section .container {
-            padding-left: 0 !important;
-            padding-right: 2rem;
-          }
-        }
-        
-        @media (min-width: 1536px) {
-          .full-width-section .featuredSwiper .swiper-slide {
-            min-width: 380px !important;
-          }
-          
-          .full-width-section .newCollectionSwiper .swiper-slide {
-            min-width: 290px !important;
-          }
-        }
-        
-        /* სპეციალური პროდუქტების სლაიდერის ნავიგაცია */
-        .specialProductSwiperContainer .swiper-button-prev,
-        .specialProductSwiperContainer .swiper-button-next {
-          opacity: 0;
-          transition: opacity 0.3s ease;
-          color: #4b5563; /* მუქი ნაცრისფერი */
-          width: 40px;
-          height: 40px;
-          background-color: rgba(255, 255, 255, 0.7);
-          border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .specialProductSwiperContainer:hover .swiper-button-prev,
-        .specialProductSwiperContainer:hover .swiper-button-next {
-          opacity: 1;
-        }
-        .specialProductSwiperContainer .swiper-button-prev:after,
-        .specialProductSwiperContainer .swiper-button-next:after {
-          font-size: 16px;
-          font-weight: bold;
-        }
-        .specialProductSwiperContainer .swiper-button-prev {
-          left: 10px;
-        }
-        .specialProductSwiperContainer .swiper-button-next {
-          right: 10px;
-        }
-        @media (max-width: 640px) { /* პატარა ეკრანებზე ოდნავ პატარა ღილაკები */
-          .specialProductSwiperContainer .swiper-button-prev,
-          .specialProductSwiperContainer .swiper-button-next {
-            width: 35px;
-            height: 35px;
-          }
-          .specialProductSwiperContainer .swiper-button-prev:after,
-          .specialProductSwiperContainer .swiper-button-next:after {
-            font-size: 14px;
-          }
-        }
-
-        /* ახლებურად გადავაწყოთ სლაიდერების ჩვენება */
-        .swiper-wrapper {
-          display: flex !important;
-          align-items: stretch !important;
-        }
-
-        .swiper-slide {
-          height: auto !important;
-          display: flex !important;
-          flex-direction: column;
-        }
-
-        .new-collection-slide > div,
-        .featured-slide > div {
-          height: 100% !important;
-          display: flex !important;
-          flex-direction: column;
-        }
-
-        /* სპეციალური სწრაფი ფიქსი სლაიდერის კონტეინერებისთვის */
-        .newCollectionSwiper, 
-        .featuredSwiper,
-        .specialProductSwiperContainer {
-          overflow: visible !important; /* ეს უზრუნველყოფს, რომ კონტენტი არ ჩამოიჭრას */
-          margin: 0 -5px !important; /* კომპენსაცია padding-ისთვის */
-          padding: 0 5px !important; /* პადინგი გვერდებზე */
-          width: calc(100% + 10px) !important; /* გავზარდოთ სიგანე პადინგით */
-        }
-
-        /* გამორჩეული ელემენტები დავრწმუნდეთ რომ ყველა ზომაზე ჩანს */
-        .featuredSwiper .swiper-slide, 
-        .newCollectionSwiper .swiper-slide {
-          padding: 5px !important;
-          box-sizing: border-box !important;
-        }
-
-        /* გავზარდოთ ღილაკების მხედველობის არე */
-        .featured-button-prev, 
-        .featured-button-next,
-        .new-collection-button-prev,
-        .new-collection-button-next {
-          z-index: 10 !important;
         }
       `}</style>
     </section>
