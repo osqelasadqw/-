@@ -171,10 +171,10 @@ export default function AdminProducts() {
   };
 
   const handleToggleFeatured = async (productId: string, currentValue: boolean) => {
-    if (featuredProductsCount >= 10 && !currentValue) {
+    if (featuredProductsCount >= 20 && !currentValue) {
       toast({
         title: "ლიმიტი მიღწეულია",
-        description: "შესაძლებელია მაქსიმუმ 10 გამორჩეული პროდუქტის მონიშვნა.",
+        description: "შესაძლებელია მაქსიმუმ 20 გამორჩეული პროდუქტის მონიშვნა.",
         variant: "destructive",
       });
       return;
@@ -199,10 +199,10 @@ export default function AdminProducts() {
   };
 
   const handleToggleNewCollection = async (productId: string, currentValue: boolean) => {
-    if (newCollectionProductsCount >= 10 && !currentValue) {
+    if (newCollectionProductsCount >= 20 && !currentValue) {
       toast({
         title: "ლიმიტი მიღწეულია",
-        description: "შესაძლებელია მაქსიმუმ 10 ახალი კოლექციის პროდუქტის მონიშვნა.",
+        description: "შესაძლებელია მაქსიმუმ 20 ახალი კოლექციის პროდუქტის მონიშვნა.",
         variant: "destructive",
       });
       return;
@@ -278,12 +278,12 @@ export default function AdminProducts() {
               <div className="flex items-center flex-shrink-0">
                 <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500 fill-amber-500 mr-1 sm:mr-2 flex-shrink-0" />
                 <span className="font-medium whitespace-nowrap">გამორჩეული</span>
-                <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({featuredProductsCount}/10)</span>
+                <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({featuredProductsCount}/20)</span>
               </div>
               <div className="flex items-center flex-shrink-0">
                 <PackageOpen className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500 fill-emerald-500 mr-1 sm:mr-2 flex-shrink-0" />
                 <span className="font-medium whitespace-nowrap">ახალი კოლექცია</span>
-                <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({newCollectionProductsCount}/10)</span>
+                <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({newCollectionProductsCount}/20)</span>
               </div>
             </div>
 

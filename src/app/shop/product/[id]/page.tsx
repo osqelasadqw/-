@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/sheet";
 import { ProductStockBadge } from '@/components/shop/product-stock-badge';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Thumbs, FreeMode, Autoplay } from 'swiper/modules';
+import { Navigation, Pagination, Thumbs, FreeMode } from 'swiper/modules';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -50,6 +50,61 @@ import 'swiper/css/thumbs';
 import 'swiper/css/free-mode';
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
+
+// ლამაზი სქროლბარის სტილები
+const customScrollbarStyles = `
+  /* ზოგიერთი კონტეინერისთვის სქროლბარი ჩანდეს მხოლოდ ჰოვერისას */
+  .custom-scrollbar.hover-show::-webkit-scrollbar-thumb {
+    opacity: 0;
+  }
+  
+  .custom-scrollbar.hover-show:hover::-webkit-scrollbar-thumb {
+    opacity: 1;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(241, 241, 241, 0.1);
+    border-radius: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(103, 103, 245, 0.4);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    opacity: 0.7;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(103, 103, 245, 0.7);
+    opacity: 1;
+  }
+  
+  /* სქროლბარის კუთხე */
+  .custom-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  
+  /* Firefox სქროლბარი */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(103, 103, 245, 0.4) transparent;
+  }
+  
+  /* ანიმაცია */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    animation: fadeIn 0.5s ease;
+  }
+`;
 
 // დავამატოთ ინტერფეისი სისტემის პარამეტრებისთვის
 interface SiteSettings {
@@ -557,6 +612,7 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
 
   return (
     <ShopLayout>
+      <style dangerouslySetInnerHTML={{ __html: customScrollbarStyles }} />
       <div className="flex flex-col md:flex-row gap-4 mb-8">
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight mb-2">{product.name}</h1>
@@ -675,7 +731,7 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
               {hasMultipleImages ? (
                 <div className="product-swiper-container w-full aspect-square relative overflow-hidden">
                   <Swiper
-                    modules={[Navigation, Pagination, Thumbs, Autoplay]}
+                    modules={[Navigation, Pagination, Thumbs]}
                     spaceBetween={0}
                     slidesPerView={1}
                     navigation={{
@@ -684,11 +740,6 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                     }}
                     pagination={{ clickable: true }}
                     thumbs={{ swiper: thumbsSwiper }}
-                    autoplay={{ 
-                      delay: 5000,
-                      disableOnInteraction: true,
-                      pauseOnMouseEnter: true 
-                    }}
                     loop={loadedImages?.length > 1}
                     onSlideChange={handleSlideChange}
                     className="product-main-swiper rounded-md border overflow-hidden aspect-square"
@@ -723,7 +774,7 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                   </Swiper>
 
                   {/* Thumbnail Swiper */}
-                  <div className="mt-4 overflow-hidden">
+                  <div className="mt-4 overflow-x-auto overflow-y-hidden custom-scrollbar relative">
                     <Swiper
                       modules={[Navigation, FreeMode, Thumbs]}
                       spaceBetween={10}
@@ -732,25 +783,29 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                       watchSlidesProgress={true}
                       onSwiper={handleThumbsSwiper}
                       className="product-thumbs-swiper"
+                      navigation={{
+                        nextEl: '.swiper-thumbs-button-next',
+                        prevEl: '.swiper-thumbs-button-prev',
+                      }}
                       breakpoints={{
                         0: {
-                          slidesPerView: Math.min(gridColumns, 2),
+                          slidesPerView: 4,
                           spaceBetween: 8,
                         },
                         480: {
-                          slidesPerView: Math.min(gridColumns, 3),
+                          slidesPerView: 5,
                           spaceBetween: 10,
                         },
                         640: {
-                          slidesPerView: Math.min(gridColumns, 4),
+                          slidesPerView: 6,
                           spaceBetween: 10,
                         },
                         768: {
-                          slidesPerView: Math.min(gridColumns, 5),
+                          slidesPerView: 6,
                           spaceBetween: 10,
                         },
                         1024: {
-                          slidesPerView: Math.min(gridColumns, 6),
+                          slidesPerView: 6,
                           spaceBetween: 10,
                         },
                       }}
@@ -774,6 +829,12 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                         </SwiperSlide>
                       ))}
                     </Swiper>
+                    <div className="swiper-thumbs-button-prev absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1 bg-black/20 hover:bg-black/40 rounded-full cursor-pointer text-white shadow-md">
+                      <ChevronLeft className="h-4 w-4" />
+                    </div>
+                    <div className="swiper-thumbs-button-next absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1 bg-black/20 hover:bg-black/40 rounded-full cursor-pointer text-white shadow-md">
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
                   </div>
                   
                   {/* დავამატოთ ღილაკი მეტი ფოტოს ჩასატვირთად */}
@@ -817,7 +878,7 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                         alt={product?.name || ''}
                         width={600}
                         height={600}
-                        className="object-contain w-auto h-auto max-h-[60vh]"
+                        className="object-contain w-auto h-auto max-h-[70vh]"
                         priority={true}
                         loading="eager"
                         placeholder="blur"
@@ -843,41 +904,10 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                     <X className="h-6 w-6" />
                   </button>
 
-                  <div className="flex flex-col items-center justify-center w-full h-full max-w-[95vw] max-h-[95vh] px-2">
-                    {/* მოდალური ფოტოს კონტეინერი */}
-                    <div className="relative flex items-center justify-center w-full h-full">
-                      <div className="relative flex items-center justify-center">
-                        <img
-                          src={currentImage}
-                          alt={product?.name || ''}
-                          className="max-w-[90vw] max-h-[80vh] object-contain"
-                        />
-                      </div>
-                      
-                      {/* ნავიგაციის ღილაკები */}
-                      {hasMultipleImages && (
-                        <>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); prevImage(); }} 
-                            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 md:p-3 rounded-full flex items-center justify-center transition-all z-10"
-                            aria-label="წინა სურათი"
-                          >
-                            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 md:p-3 rounded-full flex items-center justify-center transition-all z-10"
-                            aria-label="შემდეგი სურათი"
-                          >
-                            <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {/* თამბნეილების ქვედა პანელი - მობილურზეც და დესკტოპზეც */}
+                  <div className="flex flex-row items-center justify-center w-full h-full max-w-[95vw] max-h-[95vh] px-2 gap-2">
+                    {/* თამბნეილების მარცხენა პანელი */}
                     {hasMultipleImages && loadedImages.length > 1 && (
-                      <div className="flex justify-center space-x-2 mt-2 pb-2 overflow-x-auto w-full max-w-[90vw]">
+                      <div className="flex flex-col justify-center space-y-2 h-full max-h-[85vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent pr-2 py-4">
                         {loadedImages.map((image, index) => (
                           <button
                             key={index}
@@ -885,10 +915,10 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                               e.stopPropagation();
                               setCurrentImageIndex(index);
                             }}
-                            className={`flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded overflow-hidden ${
+                            className={`flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded overflow-hidden border-2 ${ // Added border
                               index === currentImageIndex 
-                              ? 'ring-2 ring-white' 
-                              : 'opacity-60 hover:opacity-100'
+                              ? 'border-white ring-1 ring-white' // Adjusted active style
+                              : 'border-transparent opacity-60 hover:opacity-100'
                             }`}
                           >
                             <img
@@ -898,33 +928,66 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
                             />
                           </button>
                         ))}
-                      </div>
-                    )}
-
-                    {/* ინდიკატორი */}
-                    {hasMultipleImages && (
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 z-10">
-                        <span>{currentImageIndex + 1} / {totalImageCount}</span>
+                        {/* დავამატოთ მეტი ფოტოს ჩატვირთვის ღილაკი თამბნეილების ქვეშ */}
+                        {hasMoreImages && (
+                          <div className="pt-2">
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadMoreImages();
+                              }}
+                              variant="outline"
+                              size="sm"
+                              disabled={isLoadingMoreImages}
+                              className="bg-black/40 hover:bg-black/60 text-white border-gray-700 w-full text-xs"
+                            >
+                              {isLoadingMoreImages ? "იტვირთება..." : "მეტი..."}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                     
-                    {/* დავამატოთ მეტი ფოტოს ჩატვირთვის ღილაკი მოდალშიც */}
-                    {hasMoreImages && (
-                      <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10">
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            loadMoreImages();
-                          }}
-                          variant="outline"
-                          size="sm"
-                          disabled={isLoadingMoreImages}
-                          className="bg-black/40 hover:bg-black/60 text-white border-gray-700"
-                        >
-                          {isLoadingMoreImages ? "იტვირთება..." : "მეტი ფოტოს ჩატვირთვა"}
-                        </Button>
+                    {/* მოდალური ფოტოს კონტეინერი (მარჯვნივ) */}
+                    <div className="relative flex-1 flex items-center justify-center h-full">
+                      <div className="relative flex items-center justify-center w-full h-full">
+                        <img
+                          src={currentImage}
+                          alt={product?.name || ''}
+                          className="max-w-full max-h-full object-contain w-auto h-auto"
+                          style={{ /* Removed max-width and max-height styles here, handled by container */ }}
+                        />
                       </div>
-                    )}
+                      
+                      {/* ნავიგაციის ღილაკები - პოზიცია მთავარ სურათთან */}
+                      {hasMultipleImages && (
+                        <>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); prevImage(); }} 
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 md:p-3 rounded-full flex items-center justify-center transition-all z-10"
+                            aria-label="წინა სურათი"
+                          >
+                            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 md:p-3 rounded-full flex items-center justify-center transition-all z-10"
+                            aria-label="შემდეგი სურათი"
+                          >
+                            <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* ინდიკატორი - პოზიცია მთავარი სურათის ქვემოთ */}
+                      {hasMultipleImages && (
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 z-10">
+                          <span>{currentImageIndex + 1} / {totalImageCount}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* წავშალეთ ძველი თამბნეილების და ღილაკის ბლოკები ქვემოდან */} 
                   </div>
                 </div>
               )}
