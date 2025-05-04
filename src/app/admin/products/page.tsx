@@ -239,13 +239,13 @@ export default function AdminProducts() {
 
   return (
     <AdminLayout>
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div>
               <CardTitle>პროდუქტების მართვა</CardTitle>
               <CardDescription>
-                დაამატეთ, შეცვალეთ ან წაშალეთ პროდუქტები. ასევე მონიშნეთ პროდუქტები.
+                დაამატეთ, შეცვალეთ ან წაშალეთ პროდუქტები
               </CardDescription>
             </div>
             <Link href="/admin/products/new">
@@ -253,8 +253,8 @@ export default function AdminProducts() {
             </Link>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="bg-white rounded-lg shadow">
+        <CardContent className="p-0 sm:p-6">
+          <div className="bg-white rounded-lg shadow w-full overflow-hidden">
             <div className="p-4 border-b">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -269,21 +269,21 @@ export default function AdminProducts() {
             </div>
 
             {/* სტატუსების განმარტება */}
-            <div className="px-4 py-3 bg-gray-50 border-b flex items-center space-x-6 overflow-x-auto">
+            <div className="px-4 py-3 bg-gray-50 border-b flex items-center space-x-3 sm:space-x-6 overflow-x-auto text-xs sm:text-sm">
               <div className="flex items-center flex-shrink-0">
-                <Star className="h-5 w-5 text-yellow-400 fill-yellow-400 mr-2 flex-shrink-0" />
-                <span className="text-sm font-medium whitespace-nowrap">სპეციალური</span>
-                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">({specialProductsCount}/10)</span>
+                <Star className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400 fill-yellow-400 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="font-medium whitespace-nowrap">სპეციალური</span>
+                <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({specialProductsCount}/10)</span>
               </div>
               <div className="flex items-center flex-shrink-0">
-                <Crown className="h-5 w-5 text-amber-500 fill-amber-500 mr-2 flex-shrink-0" />
-                <span className="text-sm font-medium whitespace-nowrap">გამორჩეული</span>
-                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">({featuredProductsCount}/10)</span>
+                <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500 fill-amber-500 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="font-medium whitespace-nowrap">გამორჩეული</span>
+                <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({featuredProductsCount}/10)</span>
               </div>
               <div className="flex items-center flex-shrink-0">
-                <PackageOpen className="h-5 w-5 text-emerald-500 fill-emerald-500 mr-2 flex-shrink-0" />
-                <span className="text-sm font-medium whitespace-nowrap">ახალი კოლექცია</span>
-                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">({newCollectionProductsCount}/10)</span>
+                <PackageOpen className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500 fill-emerald-500 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="font-medium whitespace-nowrap">ახალი კოლექცია</span>
+                <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({newCollectionProductsCount}/10)</span>
               </div>
             </div>
 
@@ -318,7 +318,132 @@ export default function AdminProducts() {
               </div>
             ) : (
               <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
-                <table className="w-full">
+                {/* მობილურზე სხვა დიზაინი */}
+                <div className="md:hidden">
+                  {filteredProducts.map((product) => (
+                    <div key={product.id} className="border-b p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 flex-shrink-0">
+                            {product.images && product.images.length > 0 ? (
+                              <Image
+                                className="h-10 w-10 rounded-full object-contain bg-gray-100"
+                                src={product.images[0]}
+                                alt={product.name}
+                                width={40}
+                                height={40}
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-xs text-gray-500">No img</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="ml-3 overflow-hidden">
+                            <div className="font-medium text-gray-900 truncate max-w-[150px]">{product.name}</div>
+                            <div className="text-gray-500 text-sm truncate">{getCategoryName(product.categoryId ?? '')}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">{formatCurrency(product.price)}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center mt-3">
+                        <div className="flex space-x-3">
+                          <button 
+                            onClick={() => handleToggleSpecial(product.id, Boolean(product.isSpecial))}
+                            className="focus:outline-none relative"
+                            title={product.isSpecial ? "სპეციალური პროდუქტებიდან მოხსნა" : "სპეციალურ პროდუქტებში დამატება"}
+                            disabled={loadingState.productId === product.id}
+                          >
+                            {loadingState.productId === product.id && loadingState.type === 'special' ? (
+                              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                            ) : product.isSpecial ? (
+                              <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                            ) : (
+                              <Star className="h-5 w-5 text-gray-300" />
+                            )}
+                          </button>
+                          
+                          <button 
+                            onClick={() => handleToggleFeatured(product.id, Boolean(product.isFeatured))}
+                            className="focus:outline-none relative"
+                            title={product.isFeatured ? "გამორჩეული პროდუქტებიდან მოხსნა" : "გამორჩეულ პროდუქტებში დამატება"}
+                            disabled={loadingState.productId === product.id}
+                          >
+                            {loadingState.productId === product.id && loadingState.type === 'featured' ? (
+                              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                            ) : product.isFeatured ? (
+                              <Crown className="h-5 w-5 text-amber-500 fill-amber-500" />
+                            ) : (
+                              <Crown className="h-5 w-5 text-gray-300" />
+                            )}
+                          </button>
+                          
+                          <button 
+                            onClick={() => handleToggleNewCollection(product.id, Boolean(product.isNewCollection))}
+                            className="focus:outline-none relative"
+                            title={product.isNewCollection ? "ახალი კოლექციიდან მოხსნა" : "ახალ კოლექციაში დამატება"}
+                            disabled={loadingState.productId === product.id}
+                          >
+                            {loadingState.productId === product.id && loadingState.type === 'newCollection' ? (
+                              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                            ) : product.isNewCollection ? (
+                              <PackageOpen className="h-5 w-5 text-emerald-500 fill-emerald-500" />
+                            ) : (
+                              <PackageOpen className="h-5 w-5 text-gray-300" />
+                            )}
+                          </button>
+                        </div>
+                        
+                        <div className="flex space-x-1">
+                          <Link href={`/admin/products/${product.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0"
+                                onClick={() => setProductToDelete(product.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>დარწმუნებული ხართ?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  ამ მოქმედების გაუქმება შეუძლებელია. პროდუქტი {`"${products.find(p => p.id === productToDelete)?.name || ''}"`} წაიშლება მონაცემთა ბაზიდან.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={() => setProductToDelete(null)}>
+                                  გაუქმება
+                                </AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={handleDeleteProduct}
+                                  className="bg-red-500 hover:bg-red-600"
+                                  disabled={isDeleting}
+                                >
+                                  {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                  წაშლა
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* დესკტოპ ცხრილი */}
+                <table className="w-full hidden md:table">
                   <thead className="sticky top-0 bg-gray-50 z-10">
                     <tr className="bg-gray-50">
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -472,11 +597,11 @@ export default function AdminProducts() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Product</DialogTitle>
+            <DialogTitle>პროდუქტის წაშლა</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{currentProduct?.name}&quot;?
-              This will also delete all associated images.
-              This action cannot be undone.
+              დარწმუნებული ხართ, რომ გსურთ წაშალოთ &quot;{currentProduct?.name}&quot;?
+              ასევე წაიშლება ყველა ფოტო.
+              ეს მოქმედება ვერ გაუქმდება.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -484,7 +609,7 @@ export default function AdminProducts() {
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
             >
-              Cancel
+              გაუქმება
             </Button>
             <Button
               variant="destructive"
@@ -495,7 +620,7 @@ export default function AdminProducts() {
                 setIsDeleteDialogOpen(false);
               }}
             >
-              Delete Product
+              პროდუქტის წაშლა
             </Button>
           </DialogFooter>
         </DialogContent>

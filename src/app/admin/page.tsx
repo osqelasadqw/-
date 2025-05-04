@@ -37,18 +37,18 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">ადმინისტრატორის პანელი</h1>
-          <p className="text-muted-foreground mt-1">
+      <div className="space-y-6 w-full overflow-x-hidden">
+        <div className="max-w-full">
+          <h1 className="text-xl sm:text-2xl font-bold">ადმინისტრატორის პანელი</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             მართეთ თქვენი ონლაინ მაღაზიის პროდუქტები და კატეგორიები
           </p>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
+              <div key={i} className="bg-white rounded-lg shadow p-4 sm:p-6 animate-pulse">
                 <div className="h-8 w-8 rounded-full bg-gray-200 mb-4"></div>
                 <div className="h-7 bg-gray-200 rounded w-1/2 mb-2"></div>
                 <div className="h-5 bg-gray-200 rounded w-1/3"></div>
@@ -56,18 +56,18 @@ export default function AdminDashboard() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <StatCard 
               title="პროდუქტები"
               value={productCount.toString()}
-              icon={<Package className="h-8 w-8 text-blue-500" />}
+              icon={<Package className="h-6 sm:h-8 w-6 sm:w-8 text-blue-500" />}
               linkHref="/admin/products"
               linkText="პროდუქტების მართვა"
             />
             <StatCard 
               title="კატეგორიები"
               value={categoryCount.toString()}
-              icon={<FolderOpen className="h-8 w-8 text-amber-500" />}
+              icon={<FolderOpen className="h-6 sm:h-8 w-6 sm:w-8 text-amber-500" />}
               linkHref="/admin/categories"
               linkText="კატეგორიების მართვა"
             />
@@ -76,15 +76,16 @@ export default function AdminDashboard() {
               value={new Intl.NumberFormat('ka-GE', {
                 style: 'currency',
                 currency: 'GEL',
+                maximumFractionDigits: 0,
               }).format(totalValue)}
-              icon={<DollarSign className="h-8 w-8 text-green-500" />}
+              icon={<DollarSign className="h-6 sm:h-8 w-6 sm:w-8 text-green-500" />}
             />
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-medium mb-4">სწრაფი მოქმედებები</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-medium mb-4">სწრაფი მოქმედებები</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <QuickAction 
               title="პროდუქტის დამატება"
               description="შექმენით და დაამატეთ ახალი პროდუქტი მაღაზიაში"
@@ -112,13 +113,13 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, linkHref, linkText }: StatCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-lg shadow p-4 sm:p-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium text-gray-700">{title}</h3>
-          <p className="text-2xl font-bold mt-2">{value}</p>
+        <div className="overflow-hidden">
+          <h3 className="text-base sm:text-lg font-medium text-gray-700 truncate">{title}</h3>
+          <p className="text-xl sm:text-2xl font-bold mt-2 truncate">{value}</p>
         </div>
-        <div>{icon}</div>
+        <div className="flex-shrink-0">{icon}</div>
       </div>
       {linkHref && linkText && (
         <div className="mt-4 pt-4 border-t">
@@ -146,8 +147,8 @@ function QuickAction({ title, description, href }: QuickActionProps) {
       href={href}
       className="block p-4 border rounded-md hover:bg-gray-50 transition-colors"
     >
-      <h3 className="font-medium">{title}</h3>
-      <p className="text-sm text-muted-foreground mt-1">{description}</p>
+      <h3 className="font-medium truncate">{title}</h3>
+      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{description}</p>
     </Link>
   );
 } 
