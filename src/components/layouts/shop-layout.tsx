@@ -175,7 +175,7 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
   
   const footerNavItems = [
     { href: '/shop', label: 'მთავარი' },
-    { href: '/shop/categories', label: 'კატეგორიები' },
+    { href: '/shop', label: 'კატეგორიები' },
     { href: '/shop/about', label: 'ჩვენს შესახებ' },
     { href: '/shop/promo-checker', label: 'პრომოკოდები' },
   ];
@@ -196,8 +196,8 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">სწრაფი ბმულები</h3>
             <ul className="space-y-2">
-              {footerNavItems.map((item) => (
-                <li key={item.href}>
+              {footerNavItems.map((item, index) => (
+                <li key={`${item.href}-${index}`}>
                   <Link 
                     href={item.href} 
                     className="text-sm hover:text-white transition-colors"

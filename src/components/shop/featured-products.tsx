@@ -385,6 +385,10 @@ const SpecialProductCard = memo(({
               className="rounded-lg object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
               loading="eager"
               sizes="(max-width: 639px) 90vw, (max-width: 767px) 80vw, 50vw"
+              quality={85}
+              priority={true}
+              placeholder="blur"
+              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
             />
           </div>
         </div>
@@ -434,6 +438,19 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     addToCart(product);
   }, [addToCart]);
 
+  // Preload the LCP image
+  useEffect(() => {
+    // Preload LCP image
+    if (productState.special.length > 0 && productState.special[0].images && productState.special[0].images.length > 0) {
+      // Link preload-ის გამოყენება
+      const linkEl = document.createElement('link');
+      linkEl.rel = 'preload';
+      linkEl.href = productState.special[0].images[0];
+      linkEl.as = 'image';
+      document.head.appendChild(linkEl);
+    }
+  }, [productState.special]);
+
   // პროდუქტების ჩატვირთვა - ოპტიმიზებული useEffect კუროუთინა
   useEffect(() => {
     // ავარიდოთ თავი მემორის გაჟონვას
@@ -454,13 +471,13 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
         
         const extendedProducts = productsData as ExtendedProduct[];
         
-        // ეფექტური ფილტრაცია - ერთი გავლით
-        const categorizedProducts = extendedProducts.reduce((acc, product) => {
-          if (product.isSpecial) {
+        // ეფექტური ფილტრაცია - ერთი გავლით, შეზღუდული რაოდენობით
+        const categorizedProducts = extendedProducts.reduce((acc, product, index) => {
+          if (product.isSpecial && acc.special.length < 3) {
             acc.special.push(product);
           } else {
-            if (product.isFeatured) acc.featured.push(product);
-            if (product.isNewCollection) acc.newCollection.push(product);
+            if (product.isFeatured && acc.featured.length < 6) acc.featured.push(product);
+            if (product.isNewCollection && acc.newCollection.length < 8) acc.newCollection.push(product);
           }
           return acc;
         }, { 
@@ -610,9 +627,9 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     noSwipingClass: 'no-swiping'
   }), []);
 
-  // მემოიზებული სლაიდები Featured Products-თვის - 10-ით შევზღუდავთ რომ შევამციროთ DOM ზომა 
+  // მემოიზებული სლაიდები Featured Products-თვის - 6-ით შევზღუდავთ რომ შევამციროთ DOM ზომა 
   const featuredSlides = useMemo(() => 
-    productState.featured.slice(0, 10).map((product) => (
+    productState.featured.slice(0, 6).map((product) => (
       <SwiperSlide key={product.id} className="featured-slide h-full">
         <div className="h-full w-full px-1 py-1">
           <FeaturedProductCard 
@@ -639,9 +656,9 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     );
   }, [featuredSwiperSettings, featuredSlides, productState.isLoading]);
 
-  // მემოიზებული სლაიდები New Collection-თვის - მაქსიმუმ 12 პროდუქტი DOM-ის შესამცირებლად
+  // მემოიზებული სლაიდები New Collection-თვის - მაქსიმუმ 8 პროდუქტი DOM-ის შესამცირებლად
   const newCollectionSlides = useMemo(() => 
-    productState.newCollection.slice(0, 12).map((product) => (
+    productState.newCollection.slice(0, 8).map((product) => (
       <SwiperSlide key={product.id} className="new-collection-slide h-auto">
         <div className="w-full h-full px-1 py-1">
           <NewCollectionCard product={product} />
@@ -683,8 +700,8 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       );
     }
 
-    // თუ ერთზე მეტია - მხოლოდ პირველ 5-ს ვაჩვენებთ DOM-ის შესამცირებლად
-    const specialSlides = productState.special.slice(0, 5).map((product) => (
+    // თუ ერთზე მეტია - მხოლოდ პირველ 3-ს ვაჩვენებთ DOM-ის შესამცირებლად
+    const specialSlides = productState.special.slice(0, 3).map((product) => (
        <SwiperSlide key={product.id}>
          <SpecialProductCard 
            product={product} 
