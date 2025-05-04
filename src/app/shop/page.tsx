@@ -68,14 +68,34 @@ const MemoizedSearchParamsSection = memo(function SearchParamsSection({
   const searchParams = useSearchParams();
   const searchTerm = searchParams ? searchParams.get('search') || '' : '';
   const categoryId = searchParams ? searchParams.get('category') || null : null;
+  const fromProduct = searchParams ? searchParams.get('fromProduct') === 'true' : false;
+  
+  // თვალყური მივადევნოთ ამ პარამეტრებს
+  useEffect(() => {
+    console.log('search params წაკითხულია:', { categoryId, fromProduct });
+  }, [searchParams, categoryId, fromProduct]);
   
   useEffect(() => {
     setSearchTerm(searchTerm);
   }, [searchTerm, setSearchTerm]);
   
   useEffect(() => {
+    console.log('MemoizedSearchParamsSection: categoryId განახლება:', categoryId, 'fromProduct:', fromProduct);
     setCategoryId(categoryId);
-  }, [categoryId, setCategoryId]);
+    
+    // თუ fromProduct=true, მაშინ ვუთითებთ URL-ს ხელახლა, 
+    // ამჯერად fromProduct პარამეტრის გარეშე, რომ მისი ნავიგაციის ისტორია სწორად შენახულიყო
+    if (fromProduct && categoryId) {
+      // დავაყოვნოთ ცოტა დროით, რომ დარწმუნებული ვიყოთ state განახლდა
+      setTimeout(() => {
+        window.history.replaceState(
+          null, 
+          '', 
+          `/shop?category=${categoryId}`
+        );
+      }, 100);
+    }
+  }, [categoryId, setCategoryId, fromProduct]);
   
   return null;
 });
@@ -286,6 +306,18 @@ export default function ShopPage() {
     return calculatedMinMax;
   }, []);
 
+  // დავამატოთ categoryId წინა მნიშვნელობის მიდევნება
+  const prevCategoryIdRef = useRef<string | null>(null);
+  
+  // როდესაც categoryId იცვლება, ვლოგავთ
+  useEffect(() => {
+    console.log('categoryId შეიცვალა:', {
+      previousValue: prevCategoryIdRef.current,
+      newValue: categoryId
+    });
+    prevCategoryIdRef.current = categoryId;
+  }, [categoryId]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       setIsLoading(true);
@@ -306,13 +338,22 @@ export default function ShopPage() {
         const categoriesData = await getCategories();
         setCategories(categoriesData);
         
+        console.log('კატეგორიები ჩატვირთულია, მიმდინარე categoryId:', categoryId);
+        
         if (categoryId) {
+          // კატეგორიის მიხედვით პროდუქტების ჩატვირთვა
           productsData = await getProductsByCategory(categoryId);
           const category = categoriesData.find(cat => cat.id === categoryId);
+          console.log('კატეგორია ნაპოვნია:', category);
+          
           if (category) {
+            console.log('კატეგორიის სახელის დაყენება:', category.name);
             setActiveCategoryName(category.name);
+          } else {
+            console.error('კატეგორია ვერ მოიძებნა ID-თვის:', categoryId);
           }
         } else {
+          console.log('ყველა პროდუქტის ჩატვირთვა (categoryId არ არის)');
           productsData = await getProducts();
         }
         
@@ -412,6 +453,20 @@ export default function ShopPage() {
     // შევინახოთ დახარისხების პარამეტრი და ფასდაკლების ფილტრი localStorage-ში
     localStorage.setItem('shopSortOption', tempSortOption);
     localStorage.setItem('shopDiscountOnly', tempShowDiscountedOnly.toString());
+    
+    // ვაყენებთ მიმდინარე გვერდს 1-ზე, რომ თავიდან დავიწყოთ ფილტრირებული შედეგების ჩვენება
+    setCurrentPage(1);
+    
+    // დავამატოთ ანიმაცია - ხანმოკლე დაყოვნება, რომ ვიზუალურად უკეთესად გამოჩნდეს გაფილტვრა
+    setTimeout(() => {
+      // თუ კომპიუტერის სქროლის პოზიცია ქვემოთაა, ავწიოთ ზემოთ, რომ ახალი გაფილტრული შედეგები დავინახოთ
+      if (window.scrollY > 300) {
+        window.scrollTo({
+          top: 300,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
   }, [tempSearchTerm, tempSortOption, tempShowDiscountedOnly]);
 
   const allFilteredProducts = useMemo(() => {
@@ -461,13 +516,26 @@ export default function ShopPage() {
   }, [allFilteredProducts]);
   
   const filteredProducts = useMemo(() => {
-    // ფილტრავს პროდუქტებს, რომლებიც არ არიან არც სპეციალური, არც გამორჩეული, არც ახალი კოლექცია
+    // თუ ფილტრაცია გააქტიურებულია (ძიება, ფასი ან ფასდაკლება), ვაჩვენოთ ყველა პროდუქტი ჩვეულებრივი ფორმით
+    const isFilterActive = appliedSearchTerm !== '' || 
+                           appliedShowDiscountedOnly || 
+                           (userModifiedRange && 
+                            (appliedPriceRange[0] > minMaxPrice[0] || 
+                             appliedPriceRange[1] < minMaxPrice[1]));
+    
+    if (isFilterActive || categoryId) {
+      // გაფილტვრის ან კატეგორიის არჩევის შემთხვევაში ყველა პროდუქტი ჩვეულებრივი ფორმით გამოვიდეს
+      return allFilteredProducts;
+    }
+    
+    // თუ ფილტრაცია არ არის გააქტიურებული, ვაჩვენოთ მხოლოდ ჩვეულებრივი პროდუქტები გრიდში
+    // ხოლო სპეციალურები, გამორჩეულები და ახალი კოლექცია - თავიანთ სპეციალურ სექციებში
     return allFilteredProducts.filter(product => 
       !Boolean((product as any).isSpecial) && 
       !Boolean((product as any).isFeatured) && 
       !Boolean((product as any).isNewCollection)
     );
-  }, [allFilteredProducts]);
+  }, [allFilteredProducts, categoryId, appliedSearchTerm, appliedShowDiscountedOnly, appliedPriceRange, userModifiedRange, minMaxPrice]);
   
   const allProductsForSmallScreens = useMemo(() => [...allFilteredProducts], [allFilteredProducts]);
 
@@ -592,23 +660,16 @@ export default function ShopPage() {
       window.history.scrollRestoration = 'manual';
     }
     
-    // აქტიური ჩატვირთვის დროს სქროლი არ უნდა შეიცვალოს
-    if (isLoading) {
-      // დავიმახსოვროთ მიმდინარე სქროლის პოზიცია
-      const scrollPosition = window.scrollY;
-      
-      // ვაკონტროლოთ სქროლის პოზიცია ჩატვირთვის პროცესში
-      const handleScroll = () => {
-        window.scrollTo(0, scrollPosition);
-      };
-      
-      window.addEventListener('scroll', handleScroll);
-      
-      return () => {
-        window.removeEventListener('scroll', handleScroll);
-      };
-    }
-  }, [isLoading]);
+    // არ ვბლოკავთ სქროლს ჩატვირთვისას - ეს იწვევდა ხტუნაობას
+    // ჩვენ უბრალოდ ვიმახსოვრებთ პოზიციას ნავიგაციისთვის
+    
+    // ეს ფუნქცია გამოიძახება კომპონენტის დამონტაჟების დროს
+    // და რომ დავრწმუნდეთ რომ სწორად ჩატვირთვისას პოზიცია შენარჩუნდება
+    return () => {
+      // გაწმენდისას არაფერს ვაკეთებთ - კომპონენტის გათიშვისას ნავიგაციის
+      // მექანიზმი თავად იზრუნებს სქროლის პოზიციაზე
+    };
+  }, []);
 
   // ინფინიტი სქროლის ლოგიკა
   useEffect(() => {
@@ -629,13 +690,11 @@ export default function ShopPage() {
           // დავაყოვნოთ ცოტა დროით ანიმაციისთვის
           setTimeout(() => {
             setCurrentPage(prev => prev + 1);
-            setTimeout(() => {
-              setIsLoadingMore(false);
-            }, 200);
-          }, 500);
+            setIsLoadingMore(false);
+          }, 300);
         }
       }
-    }, 100); // დებაუნსის დაყოვნება 100მს
+    }, 200); // გაზრდილი დებაუნსის დაყოვნება 200მს, უფრო გლუვი სქროლისთვის
 
     // დავაკავშიროთ სქროლის მოვლენა
     window.addEventListener('scroll', debouncedScrollHandler);
@@ -649,13 +708,15 @@ export default function ShopPage() {
   const handleLoadMore = () => {
     if (indexOfLastItem < filteredProducts.length && !isLoadingMore) {
       setIsLoadingMore(true);
-      // დავაყოვნოთ ცოტა დროით ანიმაციისთვის
+      
+      // მარტივად დავამატოთ ახალი პროდუქტები დაყოვნების გარეშე
+      setCurrentPage(prev => prev + 1);
+      
+      // დავაყენოთ ისევ isLoadingMore ფალს - მცირე დაყოვნებით
+      // რომ UI-ს ჰქონდეს საშუალება აჩვენოს ჩატვირთვის ინდიკატორი
       setTimeout(() => {
-        setCurrentPage(prev => prev + 1);
-        setTimeout(() => {
-          setIsLoadingMore(false);
-        }, 200);
-      }, 500);
+        setIsLoadingMore(false);
+      }, 300);
     }
   };
 
@@ -669,7 +730,7 @@ export default function ShopPage() {
       
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight mb-2">
-          {activeCategoryName ? activeCategoryName : ""}
+          {activeCategoryName ? `კატეგორია: ${activeCategoryName}` : "ყველა პროდუქტი"}
         </h1>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <p className="text-muted-foreground">
@@ -679,11 +740,15 @@ export default function ShopPage() {
                 size="sm" 
                 className="px-0 hover:bg-transparent hover:text-primary -ml-2"
                 onClick={() => {
+                  // ვშლით კატეგორიის პარამეტრს
+                  setCategoryId(null);
+                  setActiveCategoryName(null);
+                  // გადავდივართ იგივე გვერდზე კატეგორიის პარამეტრის გარეშე
                   router.push('/shop');
                 }}
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                მთავარზე დაბრუნება
+                ყველა პროდუქტის ჩვენება
               </Button>
             )}
           </p>
@@ -797,8 +862,14 @@ export default function ShopPage() {
             </div>
           )}
 
-          {/* სპეციალური პროდუქტის დივი - ჩატვირთვის შემდეგ გამოჩნდება, მხოლოდ თუ არსებობს მონიშნული პროდუქტები */}
-          {!isLoading && (specialProducts.length > 0 || featuredProducts.length > 0 || newCollectionProducts.length > 0) && (
+          {/* სპეციალური პროდუქტის დივი - ჩატვირთვის შემდეგ გამოჩნდება, მხოლოდ თუ არსებობს მონიშნული პროდუქტები და არ არის არჩეული კატეგორია */}
+          {!isLoading && !categoryId && (specialProducts.length > 0 || featuredProducts.length > 0 || newCollectionProducts.length > 0) && 
+            // დავამატოთ შემოწმება - არ აჩვენოს სპეციალური სექციები, თუ ფილტრაცია გააქტიურებულია
+            !(appliedSearchTerm !== '' || 
+              appliedShowDiscountedOnly || 
+              (userModifiedRange && 
+               (appliedPriceRange[0] > minMaxPrice[0] || 
+                appliedPriceRange[1] < minMaxPrice[1]))) && (
             <div className="mb-6 sm:mb-8 relative overflow-hidden rounded-xl">
               <div className={`w-full ${!showFilters ? "pl-0" : ""}`}>
                 <FeaturedProducts fullWidth={!showFilters} /> 

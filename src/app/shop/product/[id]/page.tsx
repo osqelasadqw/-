@@ -562,7 +562,19 @@ const ProductDetailPage = React.memo(function ProductDetailPage() {
           <h1 className="text-3xl font-bold tracking-tight mb-2">{product.name}</h1>
           {product.categoryId && (
             <div className="text-sm text-muted-foreground mb-4">
-              <Link href={`/shop?category=${product.categoryId}`} className="hover:underline">
+              <span className="mr-1">კატეგორია:</span>
+              <Link 
+                href={`/shop?category=${product.categoryId}&fromProduct=true`} 
+                className="text-blue-600 hover:underline font-medium" 
+                onClick={(e) => {
+                  // დავრწმუნდეთ, რომ კატეგორიის ID სწორად გადაეცემა
+                  console.log('კატეგორიაზე გადასვლა:', {
+                    categoryId: product.categoryId,
+                    category: (product as any).category
+                  });
+                  // არ ვცვლით ნორმალურ ქცევას
+                }}
+              >
                 {(product as any).category || 'კატეგორია'}
               </Link>
             </div>

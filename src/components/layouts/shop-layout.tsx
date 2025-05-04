@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense, memo } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, memo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -296,6 +296,8 @@ export function ShopLayout({ children }: ShopLayoutProps) {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [settings, setSettings] = useState<SiteSettings>({});
   
+  const headerRef = useRef<HTMLElement>(null);
+  
   const emailInputId = React.useId();
   const subscribeButtonId = React.useId();
 
@@ -372,10 +374,36 @@ export function ShopLayout({ children }: ShopLayoutProps) {
     // For now, just prevents default form submission.
   };
 
+  // ჰედერის სიმაღლის დაყენება CSS ცვლადში
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        const headerHeight = headerRef.current.offsetHeight;
+        document.documentElement.style.setProperty('--header-height', `${headerHeight}px`);
+        console.log(`Header height updated: ${headerHeight}px`); // Debugging log
+      }
+    };
+
+    // Initial measurement
+    updateHeaderHeight();
+
+    // Update on resize
+    window.addEventListener('resize', updateHeaderHeight);
+    
+    // Update after a short delay to account for potential layout shifts
+    const timeoutId = setTimeout(updateHeaderHeight, 100); 
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight);
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white shadow-sm">
+      <header ref={headerRef} className="sticky top-0 z-50 bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col">
             {/* მთავარი ნავიგაცია */}

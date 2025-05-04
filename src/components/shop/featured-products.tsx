@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, memo } from "react"
+import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Star, ShoppingCart } from "lucide-react"
@@ -80,6 +80,39 @@ const FeaturedProductCard = memo(({
   product: Product; 
   onAddToCart: (product: Product) => void 
 }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const startPos = useRef<{ x: number; y: number } | null>(null);
+  const DRAG_THRESHOLD = 10; // Pixels
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    startPos.current = { x: e.clientX, y: e.clientY };
+    setIsDragging(false); // Reset dragging state on new mousedown
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!startPos.current || e.buttons !== 1) return; // Only track if left button is pressed
+
+    const dx = e.clientX - startPos.current.x;
+    const dy = e.clientY - startPos.current.y;
+    if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    // Reset start position, but keep isDragging state until click capture handles it
+    startPos.current = null; 
+  }, []);
+
+  const handleClickCapture = useCallback((e: React.MouseEvent) => {
+    if (isDragging) {
+      e.stopPropagation(); // Prevent the Link's onClick
+      e.preventDefault();
+    }
+    // Reset dragging state after click/capture phase, ready for next interaction
+    setIsDragging(false);
+  }, [isDragging]);
+
   // მემოიზებული ფასდაკლების გამოთვლა
   const discount = useMemo(() => {
     if (product.hasPublicDiscount && product.discountPercentage && product.promoActive) {
@@ -116,7 +149,15 @@ const FeaturedProductCard = memo(({
         <Badge className="bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 text-xs text-black">გამორჩეული</Badge>
       </div>
       <div className="w-full relative overflow-hidden">
-        <Link href={productUrl} className="block w-full aspect-square bg-white">
+        <Link 
+          href={productUrl} 
+          className="block w-full aspect-square bg-white"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp} // Reset if mouse leaves while dragging
+          onClickCapture={handleClickCapture} // Use capture phase to stop propagation early
+        >
           <div className="relative w-full h-full">
             <Image
               src={imageUrl}
@@ -177,6 +218,37 @@ FeaturedProductCard.displayName = 'FeaturedProductCard';
 
 // მემოიზებული ახალი კოლექციის ბარათის კომპონენტი
 const NewCollectionCard = memo(({ product }: { product: Product }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const startPos = useRef<{ x: number; y: number } | null>(null);
+  const DRAG_THRESHOLD = 10; // Pixels
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    startPos.current = { x: e.clientX, y: e.clientY };
+    setIsDragging(false);
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!startPos.current || e.buttons !== 1) return;
+
+    const dx = e.clientX - startPos.current.x;
+    const dy = e.clientY - startPos.current.y;
+    if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    startPos.current = null;
+  }, []);
+
+  const handleClickCapture = useCallback((e: React.MouseEvent) => {
+    if (isDragging) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setIsDragging(false);
+  }, [isDragging]);
+
   // მემოიზებული ფასდაკლების გამოთვლა
   const discount = useMemo(() => {
     if (product.hasPublicDiscount && product.discountPercentage && product.promoActive) {
@@ -211,7 +283,15 @@ const NewCollectionCard = memo(({ product }: { product: Product }) => {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg mb-1.5 bg-white">
-        <Link href={productUrl} className="block w-full h-full">
+        <Link 
+          href={productUrl} 
+          className="block w-full h-full"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp} // Reset if mouse leaves while dragging
+          onClickCapture={handleClickCapture} // Use capture phase
+        >
           <div className="relative w-full h-full">
             <Image
               src={imageUrl}
@@ -391,15 +471,23 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       prevEl: '.featured-button-prev'
     },
     autoplay: {
-      delay: 5000,
+      delay: 4000,
       disableOnInteraction: false,
       pauseOnMouseEnter: true
     },
+    mousewheel: {
+      forceToAxis: true,
+      releaseOnEdges: true,
+      sensitivity: 0.5
+    },
+    preventClicks: true,
+    preventClicksPropagation: true,
     passiveListeners: true,
-    preventClicks: false,
+    noSwipingClass: 'no-swiping',
     loop: productState.featured.length >= 3, // განახლებული დამოკიდებულება
     watchOverflow: true, // დავრწმუნდეთ, რომ აჩვენებს ნავიგაციას როცა საჭიროა
     loopAdditionalSlides: 1,
+    touchReleaseOnEdges: true,
     breakpoints: {
       320: {
         slidesPerView: 1.2,
@@ -454,7 +542,7 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       prevEl: '.new-collection-button-prev'
     },
     autoplay: {
-      delay: 6000,
+      delay: 4500,
       disableOnInteraction: false,
       pauseOnMouseEnter: true
     },
@@ -464,10 +552,18 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       momentumBounce: true,
       momentumVelocityRatio: 0.4
     },
+    mousewheel: {
+      forceToAxis: true,
+      releaseOnEdges: true,
+      sensitivity: 0.5
+    },
+    preventClicks: true,
+    preventClicksPropagation: true,
     passiveListeners: true,
-    preventClicks: false,
+    touchReleaseOnEdges: true,
     grabCursor: true,
     watchOverflow: true,
+    noSwipingClass: 'no-swiping',
     breakpoints: {
       320: {
         slidesPerView: 2.2,
@@ -601,8 +697,8 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     modules: [Navigation, Pagination, Autoplay],
     spaceBetween: 10,
     slidesPerView: 1,
-    speed: 500,
-    centeredSlides: true,
+    speed: 700, // გავზარდოთ ანიმაციის დრო
+    centeredSlides: false, // დროებით გავთიშოთ ცენტრირება
     pagination: { 
       clickable: true, 
       dynamicBullets: true,
@@ -614,13 +710,21 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       prevEl: '.special-swiper-button-prev'
     },
     autoplay: {
-      delay: 4000,
+      delay: 3500,
       disableOnInteraction: false,
       pauseOnMouseEnter: true
     },
+    mousewheel: {
+      forceToAxis: true,
+      releaseOnEdges: true,
+      sensitivity: 0.5
+    },
+    preventClicks: true,
+    preventClicksPropagation: true,
+    touchReleaseOnEdges: true,
     passiveListeners: true,
-    preventClicks: false,
-    loop: true,
+    noSwipingClass: 'no-swiping',
+    loop: false, // დროებით გავთიშოთ ციკლი ტესტირებისთვის
     className: "specialProductSwiper"
   }), [productState.special.length]); // დამოკიდებულება specialProducts-ის სიგრძეზე
 
@@ -725,129 +829,50 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
           /* Ensure specialProductSwiper does NOT get this padding if it was implicitly added before */
           padding-bottom: 20px; 
         }
-        .specialProductSwiper { /* Explicitly remove padding for special swiper */
+        .specialProductSwiper {
           padding-bottom: 0 !important; 
         }
         
-        /* სპეციალური პროდუქტის კომპონენტის StackingContext-ის გასასწორებელი სტილი */
-        .specialProductSwiperContainer, 
-        .specialProductSwiper, 
-        .specialProductSwiper .swiper-wrapper {
-          z-index: auto !important;
+        /* სპეციალური პროდუქტის კომპონენტის სტილი - ამოვიღოთ ზედმეტი z-index კონტროლი */
+        .specialProductSwiperContainer {
+          position: relative;
+          display: block;
+          width: 100%;
+          overflow: hidden;
         }
         
-        /* სპეციალური პროდუქტების გარეთა კონტეინერის სტილები */
-        .specialProductSwiperContainer {
-          display: block !important;
-          position: relative !important;
-          padding-bottom: 0 !important;
+        /* სპეციალური პროდუქტების კონტეინერის სიმაღლე */
+        .special-product-container {
+          min-height: auto;
+          height: auto;
+          position: relative;
+          width: 100%;
         }
         
         /* ხედვის ზონების გასასწორებელი სტილები - მედია ბრეიქპოინტები */
         @media screen and (min-width: 668px) and (max-width: 1222px) {
-          /* გავასწოროთ პრობლემა ამ კონკრეტულ რეზოლუციაზე */
+          /* სპეციალური პროდუქტის კონტეინერი */
           .special-product-container {
-            margin-bottom: 0.5rem !important;
+            margin-bottom: 1rem;
           }
           
-          /* დავაბრუნოთ swiper-ები inline-block-ად, რომ დავიცვათ ნორმალური განლაგება */
-          .specialProductSwiper, 
-          .featuredSwiper,
-          .newCollectionSwiper {
-            display: block !important;
-            vertical-align: top !important;
-          }
-          
-          /* დავრწმუნდეთ, რომ გამორჩეული პროდუქტების სლაიდერი იწყება მაშინვე, როგორც კი სპეციალური პროდუქტი მთავრდება */
+          /* გამორჩეული პროდუქტების სწორი ფოზიცია */
           .featuredSwiper {
-            margin-top: 0 !important;
-          }
-          
-          /* ყველა wrapper-ის სტილების ჩასწორება */
-          section > div > div {
-            margin-bottom: 0 !important;
-          }
-          
-          section > div > div + div {
-            margin-top: 0 !important;
+            margin-top: 1rem;
           }
         }
         
-        @media (max-width: 768px) {
-          /* მობილურზე ვასწორებთ swiper-ის მარჯინებს */
-          .specialProductSwiperContainer {
-            margin-bottom: 0.25rem !important;
-          }
-          
-          .featuredSwiper {
-            margin-top: 0.25rem !important;
-          }
-        }
-        
-        /* სპეციალური პროდუქტის კონტეინერი - გავასწოროთ სიმაღლე */
-        .special-product-container {
-          min-height: auto;
-          height: auto;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-        
-        /* დივების მჭიდროდ განლაგება ერთმანეთზე */
-        .specialProductSwiperContainer {
-          margin-bottom: 0 !important;
-        }
-        
-        /* მთავარი სექცია - დავხვეწოთ საშუალო ეკრანებისთვის */
-        @media (min-width: 668px) and (max-width: 1222px) {
-          .special-product-container {
-            height: auto;
-          }
-          
-          /* დავრწმუნდეთ, რომ გამოჩეული პროდუქტების სლაიდერი მიჰყვება სპეციალურს */
-          .specialProductSwiperContainer + div {
-            margin-top: 0;
-          }
-          
-          /* შემცირდეს ზედა სექციის და ქვედა სექციებს შორის მანძილი */
-          section > div > div + div {
-            margin-top: 0 !important;
-          }
-          
-          /* შევამციროთ გამორჩეული პროდუქტების სექციის margin-ები */
-          .featuredSwiper {
-            margin-top: 0.25rem !important;
-          }
-        }
-        
-        /* პატარა ეკრანებისთვის სტილი */
         @media (max-width: 667px) {
+          /* მობილურზე უფრო კომპაქტური მანძილები */
           .special-product-container {
-            min-height: auto;
+            margin-bottom: 0.5rem;
           }
           
-          /* შემცირდეს ზედა სექციის და ქვედა სექციებს შორის მანძილი */
           .featuredSwiper {
-            margin-top: 0 !important;
-          }
-          
-          /* გადავაწყოთ section */
-          section.py-3 {
-            padding-top: 0.5rem !important;
-            padding-bottom: 0.5rem !important;
+            margin-top: 0.5rem;
           }
         }
-        
-        /* დარწმუნდეთ, რომ სლაიდერებს შორის არ იქნება ზედმეტი სივრცე */
-        section > div > div {
-          margin-bottom: 0.5rem;
-        }
-        
-        /* უზრუნველვყოთ მჭიდრო მიდევნება სპეციალურსა და ფიჩერდ სლაიდერებს შორის */
-        .special-product-container + div {
-          margin-top: -0.5rem !important;
-        }
-        
+
         /* Pagination styles for all swipers */
         .featuredSwiper .swiper-pagination,
         .newCollectionSwiper .swiper-pagination,
@@ -855,6 +880,7 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
           bottom: 0; /* Position pagination at the bottom */
           transition: opacity 0.3s;
         }
+        
         .featuredSwiper .swiper-pagination-bullet,
         .newCollectionSwiper .swiper-pagination-bullet,
         .specialProductSwiper .swiper-pagination-bullet {
@@ -865,6 +891,7 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
           transition: all 0.3s;
           margin: 0 3px;
         }
+        
         .featuredSwiper .swiper-pagination-bullet-active,
         .newCollectionSwiper .swiper-pagination-bullet-active,
         .specialProductSwiper .swiper-pagination-bullet-active {
@@ -873,179 +900,15 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
           width: 8px;
           height: 8px;
         }
+        
         /* გამორჩეული ბულეტებისთვის */
         .swiper-pagination-bullet-active-main {
           transform: scale(1.2);
         }
         
-        /* სლაიდერის ანიმაციის ტრანზიშენი გავამდიდროთ */
+        /* სლაიდერის ანიმაციის ტრანზიშენი */
         .swiper-slide {
-          transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.5, 1);
-        }
-        
-        /* დარწმუნდეთ, რომ სლაიდერებს შორის არ იქნება ზედმეტი სივრცე */
-        section > div > div {
-          margin-bottom: 0.5rem;
-        }
-        
-        /* გადავაწყოთ სლაიდერების ერთმანეთზე მჭიდროდ მიკვრა */
-        .featuredSwiper,
-        .newCollectionSwiper,
-        .specialProductSwiper {
-          margin-bottom: 0 !important;
-        }
-
-        /* გამორჩეული ელემენტები დავრწმუნდეთ რომ ყველა ზომაზე ჩანს */
-        .featuredSwiper .swiper-slide, 
-        .newCollectionSwiper .swiper-slide {
-          padding: 5px !important;
-          box-sizing: border-box !important;
-        }
-
-        /* გავზარდოთ ღილაკების მხედველობის არე */
-        .featured-button-prev, 
-        .featured-button-next,
-        .new-collection-button-prev,
-        .new-collection-button-next {
-          z-index: 10 !important;
-        }
-
-        .newCollectionSwiper .swiper-slide {
-          height: auto !important;
-          display: flex;
-          transition: transform 0.3s ease;
-        }
-        .newCollectionSwiper .swiper-slide:hover {
-          cursor: grab;
-        }
-        .newCollectionSwiper .swiper-slide:active {
-          cursor: grabbing;
-        }
-        .newCollectionSwiper .swiper-wrapper {
-          align-items: stretch;
-          transition-timing-function: ease-out;
-          transition-duration: 400ms;
-        }
-        
-        /* გამორჩეული პროდუქტების სლაიდერის სტილები */
-        .featuredSwiper .swiper-slide {
-          transition: transform 0.3s ease;
-          height: auto !important;
-        }
-        .featuredSwiper .swiper-wrapper {
-          align-items: stretch;
-        }
-        .featuredSwiper:hover .swiper-button-prev,
-        .featuredSwiper:hover .swiper-button-next {
-          opacity: 1;
-        }
-        
-        /* Full width სტილები სლაიდერებისთვის */
-        .full-width-section .featuredSwiper .swiper-slide,
-        .full-width-section .newCollectionSwiper .swiper-slide,
-        .full-width-section .specialProductSwiper .swiper-slide {
-          max-width: none;
-        }
-        
-        /* სპეციალური პროდუქტების სლაიდერის ნავიგაცია - დავხვეწოთ */
-        .specialProductSwiperContainer .swiper-button-prev,
-        .specialProductSwiperContainer .swiper-button-next {
-          opacity: 0;
-          transition: all 0.3s ease;
-          color: #ffffff;
-          width: 40px;
-          height: 40px;
-          background-color: rgba(0, 0, 0, 0.3);
-          border-radius: 50%;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-          transform: translateY(-50%);
-        }
-        .specialProductSwiperContainer:hover .swiper-button-prev,
-        .specialProductSwiperContainer:hover .swiper-button-next {
-          opacity: 0.8;
-        }
-        .specialProductSwiperContainer .swiper-button-prev:hover,
-        .specialProductSwiperContainer .swiper-button-next:hover {
-          opacity: 1;
-          background-color: rgba(0, 0, 0, 0.5);
-        }
-        .specialProductSwiperContainer .swiper-button-prev:after,
-        .specialProductSwiperContainer .swiper-button-next:after {
-          font-size: 16px;
-          font-weight: bold;
-        }
-        .specialProductSwiperContainer .swiper-button-prev {
-          left: 10px;
-        }
-        .specialProductSwiperContainer .swiper-button-next {
-          right: 10px;
-        }
-        @media (max-width: 640px) { /* პატარა ეკრანებზე ოდნავ პატარა ღილაკები */
-          .specialProductSwiperContainer .swiper-button-prev,
-          .specialProductSwiperContainer .swiper-button-next {
-            width: 35px;
-            height: 35px;
-          }
-          .specialProductSwiperContainer .swiper-button-prev:after,
-          .specialProductSwiperContainer .swiper-button-next:after {
-            font-size: 14px;
-          }
-        }
-
-        /* ახალი კოლექციის სლაიდერის ნავიგაციის ღილაკები */
-        .new-collection-button-prev,
-        .new-collection-button-next {
-          opacity: 0;
-          transition: opacity 0.3s ease;
-          color: #4b5563; /* მუქი ნაცრისფერი */
-          width: 36px;
-          height: 36px;
-          background-color: rgba(255, 255, 255, 0.7);
-          border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .newCollectionSwiper:hover .new-collection-button-prev,
-        .newCollectionSwiper:hover .new-collection-button-next {
-          opacity: 1;
-        }
-        .new-collection-button-prev:after,
-        .new-collection-button-next:after {
-          font-size: 14px;
-          font-weight: bold;
-        }
-        .new-collection-button-prev {
-          left: 5px;
-        }
-        .new-collection-button-next {
-          right: 5px;
-        }
-        
-        /* გამორჩეული პროდუქტების სლაიდერის ნავიგაციის ღილაკები */
-        .featured-button-prev,
-        .featured-button-next {
-          opacity: 0;
-          transition: opacity 0.3s ease;
-          color: #4b5563; /* მუქი ნაცრისფერი */
-          width: 36px;
-          height: 36px;
-          background-color: rgba(255, 255, 255, 0.7);
-          border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .featuredSwiper:hover .featured-button-prev,
-        .featuredSwiper:hover .featured-button-next {
-          opacity: 1;
-        }
-        .featured-button-prev:after,
-        .featured-button-next:after {
-          font-size: 14px;
-          font-weight: bold;
-        }
-        .featured-button-prev {
-          left: 5px;
-        }
-        .featured-button-next {
-          right: 5px;
+          transition: transform 0.4s ease;
         }
       `}</style>
     </section>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, memo } from 'react';
+import React, { useEffect, useState, useRef, memo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Product } from '@/types';
@@ -114,6 +114,11 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
   const expandedViewRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart();
   
+  const handleClose = useCallback(() => {
+    setIsExpanded(false);
+    onClose();
+  }, [onClose]);
+  
   useEffect(() => {
     const searchProducts = async () => {
       if (!searchTerm || searchTerm.length < 2) {
@@ -142,6 +147,12 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
   }, [searchTerm]);
   
   useEffect(() => {
+    if (!isOpen) {
+      setIsExpanded(false);
+    }
+  }, [isOpen]);
+  
+  useEffect(() => {
     if (isOpen && isExpanded) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -168,7 +179,7 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
       }
 
       if (currentRef && !currentRef.contains(targetElement)) { 
-        onClose();
+        handleClose();
       }
     };
     
@@ -179,11 +190,11 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, isExpanded, onClose]);
+  }, [isOpen, isExpanded, handleClose]);
   
   const handleProductClick = (productId: string) => {
     router.push(`/shop/product/${productId}`);
-    onClose();
+    handleClose();
   };
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
@@ -196,19 +207,29 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
   if (isExpanded) {
     return (
       <div 
-        className="fixed inset-0 bg-black/40 z-60 flex items-start justify-center pt-[var(--header-height,80px)]" 
-        style={{ backdropFilter: 'blur(4px)' }}
+        className="fixed inset-x-0 bottom-0 z-60 flex flex-col"
+        style={{ 
+          top: 'var(--header-height, 80px)',
+        }}
       >
+        <div className="fixed inset-0 bg-black/40 z-50"
+          style={{ top: 'var(--header-height, 80px)' }}></div>
+        
         <div 
           ref={expandedViewRef} 
-          className="bg-white w-full h-full flex flex-col border-t border-gray-200 shadow-lg"
+          className="bg-white w-full flex-1 flex flex-col z-60"
+          style={{
+            height: '100%',
+            borderRadius: 0,
+            position: 'relative'
+          }}
         >
-          <div className="sticky top-0 flex items-center justify-between border-b p-3 bg-gradient-to-r from-gray-50 to-white z-10">
+          <div className="sticky top-0 flex items-center justify-between p-3 bg-white z-10">
             <h2 className="font-medium text-lg">
               {searchTerm ? `ძიების შედეგები: "${searchTerm}"` : 'ძიება'}
             </h2>
             <button 
-              onClick={onClose}
+              onClick={handleClose}
               className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
               aria-label="დახურვა"
             >
@@ -229,7 +250,7 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
               </div>
             ) : (
               <div className="container mx-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {results.map(product => (
                     <ExpandedGridItem 
                       key={product.id} 

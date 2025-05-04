@@ -252,20 +252,6 @@ export default function AdminProducts() {
               <Button><Plus className="mr-2 h-4 w-4" /> პროდუქტის დამატება</Button>
             </Link>
           </div>
-          <div className="mt-4 relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="პროდუქტის ძიება სახელით ან აღწერით..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <span>სპეციალური: {specialProductsCount}/10</span>
-            <span>გამორჩეული: {featuredProductsCount}/10</span>
-            <span>ახალი კოლექცია: {newCollectionProductsCount}/10</span>
-          </div>
         </CardHeader>
         <CardContent>
           <div className="bg-white rounded-lg shadow">
@@ -287,17 +273,17 @@ export default function AdminProducts() {
               <div className="flex items-center flex-shrink-0">
                 <Star className="h-5 w-5 text-yellow-400 fill-yellow-400 mr-2 flex-shrink-0" />
                 <span className="text-sm font-medium whitespace-nowrap">სპეციალური</span>
-                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">(რეკომენდებულია 4)</span>
+                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">({specialProductsCount}/10)</span>
               </div>
               <div className="flex items-center flex-shrink-0">
                 <Crown className="h-5 w-5 text-amber-500 fill-amber-500 mr-2 flex-shrink-0" />
                 <span className="text-sm font-medium whitespace-nowrap">გამორჩეული</span>
-                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">(რეკომენდებულია 3)</span>
+                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">({featuredProductsCount}/10)</span>
               </div>
               <div className="flex items-center flex-shrink-0">
                 <PackageOpen className="h-5 w-5 text-emerald-500 fill-emerald-500 mr-2 flex-shrink-0" />
                 <span className="text-sm font-medium whitespace-nowrap">ახალი კოლექცია</span>
-                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">(რეკომენდებულია 7)</span>
+                <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">({newCollectionProductsCount}/10)</span>
               </div>
             </div>
 
