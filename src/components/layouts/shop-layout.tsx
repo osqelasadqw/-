@@ -303,7 +303,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
 
   const navItems = [
     { href: '/shop', label: 'მთავარი' },
-    { href: '/shop/categories', label: 'კატეგორიები' },
+    { href: '/shop', label: 'კატეგორიები' },
     { href: '/shop/about', label: 'ჩვენს შესახებ' },
     { href: '/shop/promo-checker', label: 'პრომოკოდები' },
   ];

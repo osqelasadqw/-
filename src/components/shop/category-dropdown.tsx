@@ -90,10 +90,9 @@ export const CategoryDropdown = memo(function CategoryDropdownComponent() {
   };
 
   const handleClickCategory = (categoryId: string) => {
-    // ჩავტვირთოთ პროდუქტები კატეგორიისთვის თუ ჯერ არ არის ჩატვირთული
-    handleCategoryHover(categoryId);
-    router.push(`/shop?category=${categoryId}`);
+    // Close dropdown and navigate to shop with category parameter
     setIsOpen(false);
+    router.push(`/shop?category=${categoryId}`);
   };
 
   return (
