@@ -51,7 +51,7 @@ const PriceDisplay = memo(({ originalPrice, discountedPrice, hasDiscount, size =
   
   // არ გამოვიყენებთ პირობით რენდერს და ერთიან სტრუქტურას გამოვიყენებთ
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex items-center gap-1 flex-wrap min-h-[24px]">
       <span className={`${fontSize} font-bold`}>₾{discountedPrice.toFixed(2)}</span>
       {hasDiscount && (
         <span className="text-xs text-muted-foreground line-through">
@@ -143,25 +143,29 @@ const FeaturedProductCard = memo(({
         onMouseLeave={dragHandlers.handleMouseUp}
         onClickCapture={dragHandlers.handleClickCapture}
       >
-        <Image
-          src={imageUrl}
-          alt={product.name}
-          fill
-          className="object-contain group-hover:scale-105 transition-transform duration-300"
-          sizes="(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
-          loading="lazy"
-        />
+        <div className="w-full h-full relative" style={{ minHeight: '200px' }}>
+          <Image
+            src={imageUrl}
+            alt={product.name}
+            fill
+            className="object-contain group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
+            loading="lazy"
+            placeholder="blur"
+            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+          />
+        </div>
       </Link>
       <div className="p-2 sm:p-3">
-        <h3 className="font-semibold text-sm sm:text-base mb-1 line-clamp-1">{product.name}</h3>
-        <div className="flex items-center mb-1.5">
+        <h3 className="font-semibold text-sm sm:text-base mb-1 line-clamp-1 min-h-[20px]">{product.name}</h3>
+        <div className="flex items-center mb-1.5 min-h-[16px]">
           <RatingStars count={5} filled={4} size="small" />
           <span className="ml-1 text-xs text-muted-foreground">(42)</span>
         </div>
-        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+        <p className="text-xs text-muted-foreground mb-2 line-clamp-2 min-h-[32px]">
           {product.description}
         </p>
-        <div className="flex items-center justify-between flex-wrap gap-1">
+        <div className="flex items-center justify-between flex-wrap gap-1 min-h-[28px]">
           <PriceDisplay 
             originalPrice={discount.originalPrice}
             discountedPrice={discount.discountedPrice}
@@ -268,14 +272,18 @@ const NewCollectionCard = memo(({ product }: { product: Product }) => {
           onMouseLeave={dragHandlers.handleMouseUp}
           onClickCapture={dragHandlers.handleClickCapture}
         >
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            fill
-            className="object-contain transition-transform duration-300"
-            sizes="(max-width: 639px) 45vw, (max-width: 767px) 33vw, (max-width: 1023px) 25vw, 20vw"
-            loading="lazy"
-          />
+          <div className="w-full h-full" style={{ minHeight: '120px' }}>
+            <Image
+              src={imageUrl}
+              alt={product.name}
+              fill
+              className="object-contain transition-transform duration-300"
+              sizes="(max-width: 639px) 45vw, (max-width: 767px) 33vw, (max-width: 1023px) 25vw, 20vw"
+              loading="lazy"
+              placeholder="blur"
+              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+            />
+          </div>
         </Link>
         {hasDiscount && (
           <div className="absolute top-1 right-1">
@@ -285,8 +293,8 @@ const NewCollectionCard = memo(({ product }: { product: Product }) => {
           </div>
         )}
       </div>
-      <h4 className="font-medium text-xs line-clamp-1">{product.name}</h4>
-      <div className="flex items-center justify-between mt-0.5">
+      <h4 className="font-medium text-xs line-clamp-1 min-h-[16px]">{product.name}</h4>
+      <div className="flex items-center justify-between mt-0.5 min-h-[16px]">
         <span className="font-semibold text-xs">₾{displayPrice}</span>
         <div className="flex items-center">
           <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
@@ -346,12 +354,12 @@ const SpecialProductCard = memo(({
       </div>
       <div className="grid md:grid-cols-2 gap-4 bg-gradient-to-r from-rose-50 to-rose-100 dark:from-rose-950/20 dark:to-rose-900/20 p-3 sm:p-5 rounded-lg">
         <div className="flex flex-col justify-center">
-          <p className="text-lg sm:text-xl md:text-2xl font-bold mb-2 line-clamp-2">{product.name}</p>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-3 sm:line-clamp-4">
+          <p className="text-lg sm:text-xl md:text-2xl font-bold mb-2 line-clamp-2 min-h-[56px]">{product.name}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-3 sm:line-clamp-4 min-h-[48px] sm:min-h-[64px]">
             {product.description}
           </p>
           {hasDiscount ? (
-            <div className="flex items-center flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4">
+            <div className="flex items-center flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4 min-h-[32px]">
               <span className="text-lg sm:text-xl md:text-2xl font-bold">
                 ₾{discountedPrice.toFixed(2)}
               </span>
@@ -363,7 +371,7 @@ const SpecialProductCard = memo(({
               </Badge>
             </div>
           ) : (
-            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4 min-h-[32px]">
               <span className="text-lg sm:text-xl md:text-2xl font-bold">₾{originalPrice.toFixed(2)}</span>
             </div>
           )}
@@ -377,7 +385,7 @@ const SpecialProductCard = memo(({
           </Button>
         </div>
         <div className="flex items-center justify-center md:order-last order-first mb-3 md:mb-0">
-          <div className="relative w-full max-w-[300px] md:max-w-full aspect-square rounded-lg">
+          <div className="relative w-full max-w-[300px] md:max-w-full aspect-square rounded-lg" style={{ minHeight: '250px' }}>
             <Image
               src={imageUrl}
               alt={product.name}
@@ -527,6 +535,9 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       clickable: true,
       dynamicBullets: true,
       dynamicMainBullets: 3,
+      renderBullet: function (index: number, className: string) {
+        return `<span class="${className}" style="width: 8px; height: 8px; margin: 0 4px;"></span>`;
+      }
     },
     navigation: {
       nextEl: '.featured-button-next',
@@ -647,11 +658,13 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     
     return (
       <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}>
-        <Swiper {...featuredSwiperSettings}>
-          {featuredSlides}
-          <div className="swiper-button-prev featured-button-prev hidden md:flex"></div>
-          <div className="swiper-button-next featured-button-next hidden md:flex"></div>
-        </Swiper>
+        <div className="swiper-container relative" style={{ minHeight: '300px' }}>
+          <Swiper {...featuredSwiperSettings}>
+            {featuredSlides}
+            <div className="swiper-button-prev featured-button-prev hidden md:flex"></div>
+            <div className="swiper-button-next featured-button-next hidden md:flex"></div>
+          </Swiper>
+        </div>
       </div>
     );
   }, [featuredSwiperSettings, featuredSlides, productState.isLoading]);
@@ -675,11 +688,13 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     
     return (
       <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}>
-        <Swiper {...newCollectionSwiperSettings}>
-          {newCollectionSlides}
-          <div className="swiper-button-prev new-collection-button-prev hidden md:flex"></div>
-          <div className="swiper-button-next new-collection-button-next hidden md:flex"></div>
-        </Swiper>
+        <div className="swiper-container relative" style={{ minHeight: '150px' }}>
+          <Swiper {...newCollectionSwiperSettings}>
+            {newCollectionSlides}
+            <div className="swiper-button-prev new-collection-button-prev hidden md:flex"></div>
+            <div className="swiper-button-next new-collection-button-next hidden md:flex"></div>
+          </Swiper>
+        </div>
       </div>
     );
   }, [newCollectionSwiperSettings, newCollectionSlides, productState.isLoading]);
@@ -712,11 +727,13 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     
     return (
       <div className="mb-3 sm:mb-4 relative overflow-hidden w-full">
-        <Swiper {...specialSwiperSettings}>
-          {specialSlides}
-          <div className="swiper-button-prev special-swiper-button-prev"></div>
-          <div className="swiper-button-next special-swiper-button-next"></div>
-        </Swiper>
+        <div className="swiper-container relative" style={{ minHeight: '300px' }}>
+          <Swiper {...specialSwiperSettings}>
+            {specialSlides}
+            <div className="swiper-button-prev special-swiper-button-prev"></div>
+            <div className="swiper-button-next special-swiper-button-next"></div>
+          </Swiper>
+        </div>
       </div>
     );
   }, [productState.special, handleAddToCart, specialSwiperSettings]);
@@ -732,7 +749,7 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       <div className={`${fullWidth ? 'container-full pl-0 pr-4 max-w-full' : 'container mx-auto max-w-6xl px-3 sm:px-4 md:px-6'}`}>
         {/* სპეციალური პროდუქტის სექცია */}
         <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
-          <div className="mb-3 sm:mb-4"> 
+          <div className="mb-3 sm:mb-4" style={{ minHeight: productState.isLoading ? '300px' : 'auto' }}> 
             {productState.isLoading ? (
               <div className="h-40 sm:h-48 w-full bg-muted animate-pulse rounded-lg"></div>
             ) : (
@@ -743,7 +760,7 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
 
         {/* Featured Products */}
         <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
-          <div className="mb-3 sm:mb-4">
+          <div className="mb-3 sm:mb-4" style={{ minHeight: productState.isLoading ? '300px' : 'auto' }}>
             {productState.isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {[...Array(4)].map((_, i) => (
@@ -761,15 +778,17 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
           <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
             <div className="w-full">
               <h3 className="text-lg sm:text-xl font-semibold mb-2">ახალი კოლექცია</h3>
-              {productState.isLoading ? (
-                <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-32 sm:h-36 bg-muted animate-pulse rounded-lg"></div>
-                  ))}
-                </div>
-              ) : (
-                NewCollectionSwiper
-              )}
+              <div style={{ minHeight: productState.isLoading ? '150px' : 'auto' }}>
+                {productState.isLoading ? (
+                  <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="h-32 sm:h-36 bg-muted animate-pulse rounded-lg"></div>
+                    ))}
+                  </div>
+                ) : (
+                  NewCollectionSwiper
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -785,19 +804,37 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
         
         /* Pagination styles - გამარტივებული ვერსია */
         .swiper-pagination-bullet {
-          width: 6px;
-          height: 6px;
-          background: #cbd5e1;
-          opacity: 0.5;
-          transition: all 0.3s;
-          margin: 0 3px;
+          width: 8px !important;
+          height: 8px !important;
+          background: #cbd5e1 !important;
+          opacity: 0.5 !important;
+          transition: all 0.3s !important;
+          margin: 0 4px !important;
+          display: inline-block !important;
         }
         
         .swiper-pagination-bullet-active {
-          background: #334155;
-          opacity: 1;
-          width: 8px;
-          height: 8px;
+          background: #334155 !important;
+          opacity: 1 !important;
+          width: 8px !important;
+          height: 8px !important;
+        }
+
+        /* Fix CLS issues with swiper */
+        .swiper-wrapper {
+          min-height: 200px;
+        }
+        
+        /* Fix swiper pagination layout shifts */
+        .swiper-pagination {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
         }
       `}</style>
     </section>

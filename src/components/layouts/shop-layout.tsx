@@ -251,7 +251,7 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
                   alt="Visa" 
                   width={32} 
                   height={32} 
-                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all" 
+                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all w-8 h-8" 
                 />
               </div>
               <div className="w-8 h-8">
@@ -260,7 +260,7 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
                   alt="MasterCard" 
                   width={32} 
                   height={32} 
-                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all" 
+                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all w-8 h-8" 
                 />
               </div>
               <div className="w-8 h-8">
@@ -269,7 +269,7 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
                   alt="PayPal" 
                   width={32} 
                   height={32} 
-                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all" 
+                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all w-8 h-8" 
                 />
               </div>
             </div>
