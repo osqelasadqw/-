@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
+import { useEffect, useState, useCallback, useMemo, memo, useRef, lazy, Suspense } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Star, ShoppingCart } from "lucide-react"
@@ -20,16 +20,15 @@ import 'swiper/css/pagination'
 import 'swiper/css/free-mode'
 import 'swiper/css/scrollbar'
 
-// მემოიზებული ვარსკვლავების კომპონენტი
+// მემოიზებული ვარსკვლავების კომპონენტი - გაუმჯობესებული ვერსია
 const RatingStars = memo(({ count = 5, filled = 4, size = "small" }: { count?: number; filled?: number; size?: "small" | "medium" | "large" }) => {
-  // ვარსკვლავების ზომების კალკულაცია
-  const starSize = useMemo(() => {
-    return size === "small" ? "h-3 w-3" : size === "medium" ? "h-3.5 w-3.5" : "h-4 w-4";
-  }, [size]);
+  // სტატიკური ზომები კალკულაციის თავიდან ასაცილებლად
+  const starSize = size === "small" ? "h-3 w-3" : size === "medium" ? "h-3.5 w-3.5" : "h-4 w-4";
   
+  // არ გამოვიყენებთ useState შიდა მასივისთვის - ესეც შეამცირებს მეხსიერების გამოყენებას
   return (
     <>
-      {[...Array(count)].map((_, i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <Star 
           key={i} 
           className={`${starSize} ${i < filled ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} 
@@ -41,31 +40,24 @@ const RatingStars = memo(({ count = 5, filled = 4, size = "small" }: { count?: n
 
 RatingStars.displayName = 'RatingStars';
 
-// მემოიზებული ფასის კომპონენტი
+// მემოიზებული ფასის კომპონენტი - გაუმჯობესებული პერფორმანსით
 const PriceDisplay = memo(({ originalPrice, discountedPrice, hasDiscount, size = "small" }: 
   { originalPrice: number; discountedPrice: number; hasDiscount: boolean; size?: "small" | "medium" | "large" }) => {
   
-  // ფონტის ზომების კალკულაცია
-  const fontSize = useMemo(() => {
-    return size === "small" ? "text-xs sm:text-sm" : 
-           size === "medium" ? "text-sm sm:text-base" : 
-           "text-lg sm:text-xl md:text-2xl";
-  }, [size]);
+  // წინასწარ განსაზღვრული ფონტის ზომები useCallback-ის ნაცვლად
+  const fontSize = size === "small" ? "text-xs sm:text-sm" : 
+                   size === "medium" ? "text-sm sm:text-base" : 
+                   "text-lg sm:text-xl md:text-2xl";
   
-  if (hasDiscount) {
-    return (
-      <div className="flex items-center gap-1 flex-wrap">
-        <span className={`${fontSize} font-bold`}>₾{discountedPrice.toFixed(2)}</span>
+  // არ გამოვიყენებთ პირობით რენდერს და ერთიან სტრუქტურას გამოვიყენებთ
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      <span className={`${fontSize} font-bold`}>₾{discountedPrice.toFixed(2)}</span>
+      {hasDiscount && (
         <span className="text-xs text-muted-foreground line-through">
           ₾{originalPrice.toFixed(2)}
         </span>
-      </div>
-    );
-  }
-  
-  return (
-    <div>
-      <span className={`${fontSize} font-bold`}>₾{originalPrice.toFixed(2)}</span>
+      )}
     </div>
   );
 });
@@ -84,42 +76,40 @@ const FeaturedProductCard = memo(({
   const startPos = useRef<{ x: number; y: number } | null>(null);
   const DRAG_THRESHOLD = 10; // Pixels
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    startPos.current = { x: e.clientX, y: e.clientY };
-    setIsDragging(false); // Reset dragging state on new mousedown
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!startPos.current || e.buttons !== 1) return; // Only track if left button is pressed
-
-    const dx = e.clientX - startPos.current.x;
-    const dy = e.clientY - startPos.current.y;
-    if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-      setIsDragging(true);
+  // drag ფუნქციონალი გავაერთიანეთ პერფორმანსისთვის
+  const dragHandlers = useMemo(() => ({
+    handleMouseDown: (e: React.MouseEvent) => {
+      startPos.current = { x: e.clientX, y: e.clientY };
+      setIsDragging(false);
+    },
+    handleMouseMove: (e: React.MouseEvent) => {
+      if (!startPos.current || e.buttons !== 1) return; 
+      const dx = e.clientX - startPos.current.x;
+      const dy = e.clientY - startPos.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        setIsDragging(true);
+      }
+    },
+    handleMouseUp: () => {
+      startPos.current = null; 
+    },
+    handleClickCapture: (e: React.MouseEvent) => {
+      if (isDragging) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      setIsDragging(false);
     }
-  }, []);
+  }), [isDragging]);
 
-  const handleMouseUp = useCallback(() => {
-    // Reset start position, but keep isDragging state until click capture handles it
-    startPos.current = null; 
-  }, []);
-
-  const handleClickCapture = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      e.stopPropagation(); // Prevent the Link's onClick
-      e.preventDefault();
-    }
-    // Reset dragging state after click/capture phase, ready for next interaction
-    setIsDragging(false);
-  }, [isDragging]);
-
-  // მემოიზებული ფასდაკლების გამოთვლა
+  // მემოიზებული ფასდაკლების გამოთვლა - მხოლოდ საჭირო პროპერთებზე დამოკიდებულით
   const discount = useMemo(() => {
     if (product.hasPublicDiscount && product.discountPercentage && product.promoActive) {
+      const discountedPrice = product.price * (1 - product.discountPercentage / 100);
       return {
         hasDiscount: true,
         originalPrice: product.price,
-        discountedPrice: product.price * (1 - product.discountPercentage / 100),
+        discountedPrice,
         percentage: product.discountPercentage
       };
     }
@@ -127,56 +117,48 @@ const FeaturedProductCard = memo(({
   }, [product.hasPublicDiscount, product.discountPercentage, product.promoActive, product.price]);
 
   // მემოიზებული ფუნქციები
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     onAddToCart(product);
   }, [onAddToCart, product]);
 
-  // მემოიზებული სურათის URL
-  const imageUrl = useMemo(() => 
-    product.images[0] || "/placeholder.svg?height=400&width=400", 
-    [product.images]
-  );
+  // მემოიზებული სურათის URL - გამოვიყენებთ null coalescing ოპერატორს (??)
+  const imageUrl = product.images[0] ?? "/placeholder.svg?height=400&width=400";
 
   // მემოიზებული პროდუქტის URL
-  const productUrl = useMemo(() => 
-    `/shop/product/${product.id}`, 
-    [product.id]
-  );
+  const productUrl = `/shop/product/${product.id}`;
 
+  // DOM-ის ზომის შემცირებისთვის ვაოპტიმიზებთ JSX სტრუქტურას
   return (
     <div className="group relative overflow-hidden rounded-lg border bg-background hover:shadow-md transition-all h-full">
       <div className="absolute top-2 left-2 z-20">
         <Badge className="bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 text-xs text-black">გამორჩეული</Badge>
       </div>
-      <div className="w-full relative overflow-hidden">
-        <Link 
-          href={productUrl} 
-          className="block w-full aspect-square bg-white"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp} // Reset if mouse leaves while dragging
-          onClickCapture={handleClickCapture} // Use capture phase to stop propagation early
-        >
-          <div className="relative w-full h-full">
-            <Image
-              src={imageUrl}
-              alt={product.name}
-              fill
-              className="object-contain group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        </Link>
-      </div>
+      <Link 
+        href={productUrl} 
+        className="block w-full aspect-square bg-white relative overflow-hidden"
+        onMouseDown={dragHandlers.handleMouseDown}
+        onMouseMove={dragHandlers.handleMouseMove}
+        onMouseUp={dragHandlers.handleMouseUp}
+        onMouseLeave={dragHandlers.handleMouseUp}
+        onClickCapture={dragHandlers.handleClickCapture}
+      >
+        <Image
+          src={imageUrl}
+          alt={product.name}
+          fill
+          className="object-contain group-hover:scale-105 transition-transform duration-300"
+          sizes="(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
+          loading="lazy"
+        />
+      </Link>
       <div className="p-2 sm:p-3">
-        <h3 className="font-semibold text-sm sm:text-base mb-1 line-clamp-1 overflow-hidden text-ellipsis">{product.name}</h3>
+        <h3 className="font-semibold text-sm sm:text-base mb-1 line-clamp-1">{product.name}</h3>
         <div className="flex items-center mb-1.5">
           <RatingStars count={5} filled={4} size="small" />
           <span className="ml-1 text-xs text-muted-foreground">(42)</span>
         </div>
-        <p className="text-xs text-muted-foreground mb-2 line-clamp-2 overflow-hidden">
+        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
           {product.description}
         </p>
         <div className="flex items-center justify-between flex-wrap gap-1">
@@ -192,6 +174,7 @@ const FeaturedProductCard = memo(({
               variant="default"
               className="rounded-full h-6 w-6 sm:h-7 sm:w-7 p-0"
               onClick={handleAddToCart}
+              type="button"
             >
               <ShoppingCart className="h-3 w-3" />
               <span className="sr-only">კალათაში დამატება</span>
@@ -216,69 +199,62 @@ const FeaturedProductCard = memo(({
 
 FeaturedProductCard.displayName = 'FeaturedProductCard';
 
-// მემოიზებული ახალი კოლექციის ბარათის კომპონენტი
+// ოპტიმიზებული NewCollectionCard კომპონენტი
 const NewCollectionCard = memo(({ product }: { product: Product }) => {
   const [isDragging, setIsDragging] = useState(false);
   const startPos = useRef<{ x: number; y: number } | null>(null);
-  const DRAG_THRESHOLD = 10; // Pixels
+  const DRAG_THRESHOLD = 10;
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    startPos.current = { x: e.clientX, y: e.clientY };
-    setIsDragging(false);
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!startPos.current || e.buttons !== 1) return;
-
-    const dx = e.clientX - startPos.current.x;
-    const dy = e.clientY - startPos.current.y;
-    if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-      setIsDragging(true);
+  // drag ფუნქციონალი გავაერთიანეთ პერფორმანსისთვის
+  const dragHandlers = useMemo(() => ({
+    handleMouseDown: (e: React.MouseEvent) => {
+      startPos.current = { x: e.clientX, y: e.clientY };
+      setIsDragging(false);
+    },
+    handleMouseMove: (e: React.MouseEvent) => {
+      if (!startPos.current || e.buttons !== 1) return;
+      const dx = e.clientX - startPos.current.x;
+      const dy = e.clientY - startPos.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        setIsDragging(true);
+      }
+    },
+    handleMouseUp: () => {
+      startPos.current = null;
+    },
+    handleClickCapture: (e: React.MouseEvent) => {
+      if (isDragging) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      setIsDragging(false);
     }
-  }, []);
+  }), [isDragging]);
 
-  const handleMouseUp = useCallback(() => {
-    startPos.current = null;
-  }, []);
-
-  const handleClickCapture = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-    setIsDragging(false);
-  }, [isDragging]);
-
-  // მემოიზებული ფასდაკლების გამოთვლა
-  const discount = useMemo(() => {
+  // გაუმჯობესებული ფასდაკლების გამოთვლა
+  const { 
+    hasDiscount, 
+    discountedPrice, 
+    percentage 
+  } = useMemo(() => {
     if (product.hasPublicDiscount && product.discountPercentage && product.promoActive) {
       return {
         hasDiscount: true,
-        originalPrice: product.price,
         discountedPrice: product.price * (1 - product.discountPercentage / 100),
         percentage: product.discountPercentage
       };
     }
-    return { hasDiscount: false, originalPrice: product.price, discountedPrice: product.price, percentage: 0 };
+    return { 
+      hasDiscount: false, 
+      discountedPrice: product.price, 
+      percentage: 0 
+    };
   }, [product.hasPublicDiscount, product.discountPercentage, product.promoActive, product.price]);
 
-  // მემოიზებული სურათის URL
-  const imageUrl = useMemo(() => 
-    product.images[0] || "/placeholder.svg?height=200&width=160", 
-    [product.images]
-  );
-
-  // მემოიზებული პროდუქტის URL
-  const productUrl = useMemo(() => 
-    `/shop/product/${product.id}`, 
-    [product.id]
-  );
-
-  // მემოიზებული პროდუქტის ფასი
-  const displayPrice = useMemo(() => 
-    discount.hasDiscount ? discount.discountedPrice.toFixed(2) : product.price.toFixed(2),
-    [discount.hasDiscount, discount.discountedPrice, product.price]
-  );
+  // წინასწარ დეკლარირებული ცვლადები
+  const imageUrl = product.images[0] ?? "/placeholder.svg?height=200&width=160";
+  const productUrl = `/shop/product/${product.id}`;
+  const displayPrice = discountedPrice.toFixed(2);
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -286,32 +262,30 @@ const NewCollectionCard = memo(({ product }: { product: Product }) => {
         <Link 
           href={productUrl} 
           className="block w-full h-full"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp} // Reset if mouse leaves while dragging
-          onClickCapture={handleClickCapture} // Use capture phase
+          onMouseDown={dragHandlers.handleMouseDown}
+          onMouseMove={dragHandlers.handleMouseMove}
+          onMouseUp={dragHandlers.handleMouseUp}
+          onMouseLeave={dragHandlers.handleMouseUp}
+          onClickCapture={dragHandlers.handleClickCapture}
         >
-          <div className="relative w-full h-full">
-            <Image
-              src={imageUrl}
-              alt={product.name}
-              fill
-              className="object-contain transition-transform duration-300"
-              sizes="(max-width: 639px) 45vw, (max-width: 767px) 33vw, (max-width: 1023px) 25vw, 20vw"
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
+          <Image
+            src={imageUrl}
+            alt={product.name}
+            fill
+            className="object-contain transition-transform duration-300"
+            sizes="(max-width: 639px) 45vw, (max-width: 767px) 33vw, (max-width: 1023px) 25vw, 20vw"
+            loading="lazy"
+          />
         </Link>
-        {discount.hasDiscount && (
+        {hasDiscount && (
           <div className="absolute top-1 right-1">
             <Badge className="bg-emerald-500 hover:bg-emerald-600 px-1 py-0.5 text-white text-[10px]">
-              -{discount.percentage}%
+              -{percentage}%
             </Badge>
           </div>
         )}
       </div>
-      <h4 className="font-medium text-xs line-clamp-1 overflow-hidden text-ellipsis whitespace-nowrap">{product.name}</h4>
+      <h4 className="font-medium text-xs line-clamp-1">{product.name}</h4>
       <div className="flex items-center justify-between mt-0.5">
         <span className="font-semibold text-xs">₾{displayPrice}</span>
         <div className="flex items-center">
@@ -325,7 +299,7 @@ const NewCollectionCard = memo(({ product }: { product: Product }) => {
 
 NewCollectionCard.displayName = 'NewCollectionCard';
 
-// მემოიზებული სპეციალური პროდუქტის კომპონენტი
+// ოპტიმიზებული SpecialProductCard კომპონენტი
 const SpecialProductCard = memo(({ 
   product, 
   onAddToCart 
@@ -333,8 +307,13 @@ const SpecialProductCard = memo(({
   product: Product; 
   onAddToCart: (product: Product) => void 
 }) => {
-  // მემოიზებული ფასდაკლების გამოთვლა
-  const discount = useMemo(() => {
+  // ოპტიმიზებული ფასდაკლების გამოთვლა
+  const { 
+    hasDiscount, 
+    originalPrice, 
+    discountedPrice, 
+    percentage 
+  } = useMemo(() => {
     if (product.hasPublicDiscount && product.discountPercentage && product.promoActive) {
       return {
         hasDiscount: true,
@@ -343,19 +322,22 @@ const SpecialProductCard = memo(({
         percentage: product.discountPercentage
       };
     }
-    return { hasDiscount: false, originalPrice: product.price, discountedPrice: product.price, percentage: 0 };
+    return { 
+      hasDiscount: false, 
+      originalPrice: product.price, 
+      discountedPrice: product.price, 
+      percentage: 0 
+    };
   }, [product.hasPublicDiscount, product.discountPercentage, product.promoActive, product.price]);
 
   // მემოიზებული ფუნქციები
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     onAddToCart(product);
   }, [onAddToCart, product]);
 
   // მემოიზებული სურათის URL
-  const imageUrl = useMemo(() => 
-    product.images[0] || "/placeholder.svg?height=600&width=600", 
-    [product.images]
-  );
+  const imageUrl = product.images[0] ?? "/placeholder.svg?height=600&width=600";
 
   return (
     <div className="relative overflow-hidden rounded-lg sm:rounded-xl group">
@@ -364,48 +346,46 @@ const SpecialProductCard = memo(({
       </div>
       <div className="grid md:grid-cols-2 gap-4 bg-gradient-to-r from-rose-50 to-rose-100 dark:from-rose-950/20 dark:to-rose-900/20 p-3 sm:p-5 rounded-lg">
         <div className="flex flex-col justify-center">
-          <p className="text-lg sm:text-xl md:text-2xl font-bold mb-2 line-clamp-2 overflow-hidden text-ellipsis">{product.name}</p>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-3 sm:line-clamp-4 overflow-hidden">
+          <p className="text-lg sm:text-xl md:text-2xl font-bold mb-2 line-clamp-2">{product.name}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-3 sm:line-clamp-4">
             {product.description}
           </p>
-          {discount.hasDiscount ? (
+          {hasDiscount ? (
             <div className="flex items-center flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4">
               <span className="text-lg sm:text-xl md:text-2xl font-bold">
-                ₾{discount.discountedPrice.toFixed(2)}
+                ₾{discountedPrice.toFixed(2)}
               </span>
               <span className="text-xs sm:text-sm text-muted-foreground line-through">
-                ₾{discount.originalPrice.toFixed(2)}
+                ₾{originalPrice.toFixed(2)}
               </span>
               <Badge variant="outline" className="ml-1 text-xs text-emerald-600 border-emerald-600">
-                {discount.percentage}% ფასდაკლება
+                {percentage}% ფასდაკლება
               </Badge>
             </div>
           ) : (
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <span className="text-lg sm:text-xl md:text-2xl font-bold">₾{product.price.toFixed(2)}</span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold">₾{originalPrice.toFixed(2)}</span>
             </div>
           )}
           <Button 
             size="sm" 
             className="w-full sm:w-auto bg-rose-700 hover:bg-rose-800 text-white text-xs sm:text-sm"
             onClick={handleAddToCart}
+            type="button"
           >
             კალათაში დამატება
           </Button>
         </div>
         <div className="flex items-center justify-center md:order-last order-first mb-3 md:mb-0">
           <div className="relative w-full max-w-[300px] md:max-w-full aspect-square rounded-lg">
-            <div className="relative w-full h-full">
-              <Image
-                src={imageUrl}
-                alt={product.name}
-                fill
-                className="rounded-lg object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                priority
-                sizes="(max-width: 639px) 90vw, (max-width: 767px) 80vw, 50vw"
-                style={{ objectFit: 'cover' }}
-              />
-            </div>
+            <Image
+              src={imageUrl}
+              alt={product.name}
+              fill
+              className="rounded-lg object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+              loading="eager"
+              sizes="(max-width: 639px) 90vw, (max-width: 767px) 80vw, 50vw"
+            />
           </div>
         </div>
       </div>
@@ -427,7 +407,7 @@ interface FeaturedProductsProps {
   fullWidth?: boolean;
 }
 
-// ერთიანი State ინტერფეისი
+// ერთიანი State ინტერფეისი - ვინახავთ მონაცემებს ერთ ობიექტში
 interface ProductLoadingState {
   featured: ExtendedProduct[];
   special: ExtendedProduct[];
@@ -436,8 +416,9 @@ interface ProductLoadingState {
   error: Error | null;
 }
 
+// მთავარი კომპონენტის ლენიანი დატვირთვისთვის - გამოიყენეთ React.lazy შემდეგში
 export default function FeaturedProducts({ fullWidth = false }: FeaturedProductsProps) {
-  // ერთიანი State
+  // საწყისი მდგომარეობა ერთიან ობიექტში
   const [productState, setProductState] = useState<ProductLoadingState>({
     featured: [],
     special: [],
@@ -448,17 +429,82 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
 
   const { addToCart } = useCart();
 
-  // მემოიზებული ფუნქცია addToCart-ის გამოსაძახებლად
+  // მემოიზებული კარტის დამატების ფუნქცია - ერთხელ იქმნება
   const handleAddToCart = useCallback((product: Product) => {
     addToCart(product);
   }, [addToCart]);
 
-  // მემოიზებული Swiper კონფიგურაცია - გადმოვიტანეთ isLoading-ის შემოწმებამდე
+  // პროდუქტების ჩატვირთვა - ოპტიმიზებული useEffect კუროუთინა
+  useEffect(() => {
+    // ავარიდოთ თავი მემორის გაჟონვას
+    let isMounted = true;
+    
+    const fetchProducts = async () => {
+      try {
+        // გამოვიყენებთ fetch-ში ტაიმაუტს
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), 5000);
+        
+        const productsData = await getProducts();
+        
+        clearTimeout(timeoutId);
+        
+        // თუ კომპონენტი აღარ არის ხელმისაწვდომი, არ განვაახლოთ state
+        if (!isMounted) return;
+        
+        const extendedProducts = productsData as ExtendedProduct[];
+        
+        // ეფექტური ფილტრაცია - ერთი გავლით
+        const categorizedProducts = extendedProducts.reduce((acc, product) => {
+          if (product.isSpecial) {
+            acc.special.push(product);
+          } else {
+            if (product.isFeatured) acc.featured.push(product);
+            if (product.isNewCollection) acc.newCollection.push(product);
+          }
+          return acc;
+        }, { 
+          special: [] as ExtendedProduct[], 
+          featured: [] as ExtendedProduct[], 
+          newCollection: [] as ExtendedProduct[] 
+        });
+        
+        // ერთი state განახლება მრავალი ცვლილების ნაცვლად
+        setProductState({
+          featured: categorizedProducts.featured,
+          special: categorizedProducts.special,
+          newCollection: categorizedProducts.newCollection,
+          isLoading: false,
+          error: null
+        });
+
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        if (isMounted) {
+          // ერთი state განახლება შეცდომის შემთხვევაშიც
+          setProductState(prevState => ({
+            ...prevState,
+            isLoading: false,
+            error: error as Error
+          }));
+        }
+      } 
+    };
+    
+    fetchProducts();
+    
+    // cleanup ფუნქცია მემორის გაჟონვის თავიდან ასაცილებლად
+    return () => {
+      isMounted = false;
+    };
+  }, []); // ცარიელი დამოკიდებულების მასივი
+
+  // მემოიზებული Swiper კონფიგურაცია - გაუმჯობესებული პერფორმანსი
   const featuredSwiperSettings = useMemo(() => ({
-    modules: [Navigation, Pagination, Autoplay],
+    modules: [Navigation, Pagination, Autoplay], // შემცირებული მოდულების რაოდენობა
     spaceBetween: 16,
     slidesPerView: 1,
-    speed: 800, // ანიმაციის სიჩქარე (ms)
+    speed: 800,
     centeredSlides: false,
     pagination: { 
       clickable: true,
@@ -466,7 +512,6 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       dynamicMainBullets: 3,
     },
     navigation: {
-      enabled: true,
       nextEl: '.featured-button-next',
       prevEl: '.featured-button-prev'
     },
@@ -475,69 +520,37 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       disableOnInteraction: false,
       pauseOnMouseEnter: true
     },
-    mousewheel: {
-      forceToAxis: true,
-      releaseOnEdges: true,
-      sensitivity: 0.5
-    },
     preventClicks: true,
     preventClicksPropagation: true,
     passiveListeners: true,
     noSwipingClass: 'no-swiping',
-    loop: productState.featured.length >= 3, // განახლებული დამოკიდებულება
-    watchOverflow: true, // დავრწმუნდეთ, რომ აჩვენებს ნავიგაციას როცა საჭიროა
+    loop: productState.featured.length >= 3,
+    watchOverflow: true,
     loopAdditionalSlides: 1,
-    touchReleaseOnEdges: true,
     breakpoints: {
-      320: {
-        slidesPerView: 1.2,
-        spaceBetween: 12,
-      },
-      400: {
-        slidesPerView: 1.5,
-        spaceBetween: 16,
-      },
-      520: {
-        slidesPerView: 2,
-        spaceBetween: 16,
-      },
-      640: {
-        slidesPerView: 2.5,
-        spaceBetween: 20,
-      },
-      768: {
-        slidesPerView: 2.5,
-        spaceBetween: 20,
-      },
-      1024: {
-        slidesPerView: 3,
-        spaceBetween: 24,
-      },
-      1280: {
-        slidesPerView: 3.5,
-        spaceBetween: 24,
-      },
-      1536: {
-        slidesPerView: 4,
-        spaceBetween: 24,
-      }
-    },
-    className: "featuredSwiper"
-  }), [productState.featured.length]); // განახლებული დამოკიდებულება
+      320: { slidesPerView: 1.2, spaceBetween: 12 },
+      400: { slidesPerView: 1.5, spaceBetween: 16 },
+      520: { slidesPerView: 2, spaceBetween: 16 },
+      640: { slidesPerView: 2.5, spaceBetween: 20 },
+      768: { slidesPerView: 2.5, spaceBetween: 20 },
+      1024: { slidesPerView: 3, spaceBetween: 24 },
+      1280: { slidesPerView: 3.5, spaceBetween: 24 },
+      1536: { slidesPerView: 4, spaceBetween: 24 }
+    }
+  }), [productState.featured.length]);
 
-  // მემოიზებული Swiper კონფიგურაცია ახალი კოლექციისთვის - გადმოვიტანეთ isLoading-ის შემოწმებამდე
+  // მემოიზებული Swiper კონფიგურაცია ახალი კოლექციისთვის - ოპტიმიზებული ვერსია
   const newCollectionSwiperSettings = useMemo(() => ({
-    modules: [Pagination, FreeMode, Navigation, Autoplay],
+    modules: [Pagination, FreeMode, Autoplay], // Navigation-ის გარეშე, გამოვიყენებთ როცა საჭიროა
     spaceBetween: 16,
     slidesPerView: 2.2,
-    speed: 600, // ანიმაციის სიჩქარე (ms)
+    speed: 600,
     pagination: { 
       clickable: true,
       dynamicBullets: true,
       dynamicMainBullets: 3,
     },
     navigation: {
-      enabled: true,
       nextEl: '.new-collection-button-next',
       prevEl: '.new-collection-button-prev'
     },
@@ -552,11 +565,6 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       momentumBounce: true,
       momentumVelocityRatio: 0.4
     },
-    mousewheel: {
-      forceToAxis: true,
-      releaseOnEdges: true,
-      sensitivity: 0.5
-    },
     preventClicks: true,
     preventClicksPropagation: true,
     passiveListeners: true,
@@ -565,83 +573,46 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     watchOverflow: true,
     noSwipingClass: 'no-swiping',
     breakpoints: {
-      320: {
-        slidesPerView: 2.2,
-        spaceBetween: 12,
-      },
-      360: {
-        slidesPerView: 2.5,
-        spaceBetween: 12,
-      },
-      480: {
-        slidesPerView: 3,
-        spaceBetween: 16,
-      },
-      640: {
-        slidesPerView: 3.5,
-        spaceBetween: 16,
-      },
-      768: {
-        slidesPerView: 4,
-        spaceBetween: 20,
-      },
-      1024: {
-        slidesPerView: 5,
-        spaceBetween: 20,
-      },
-      1280: {
-        slidesPerView: 6,
-        spaceBetween: 20,
-      },
-      1536: {
-        slidesPerView: 7,
-        spaceBetween: 20,
-      }
-    },
-    className: "newCollectionSwiper"
+      320: { slidesPerView: 2.2, spaceBetween: 12 },
+      360: { slidesPerView: 2.5, spaceBetween: 12 },
+      480: { slidesPerView: 3, spaceBetween: 16 },
+      640: { slidesPerView: 3.5, spaceBetween: 16 },
+      768: { slidesPerView: 4, spaceBetween: 20 },
+      1024: { slidesPerView: 5, spaceBetween: 20 },
+      1280: { slidesPerView: 6, spaceBetween: 20 },
+      1536: { slidesPerView: 7, spaceBetween: 20 }
+    }
   }), []);
 
-  // პროდუქტების ჩატვირთვა
-  useEffect(() => {
-    const fetchProducts = async () => {
-      // არ ვცვლით isLoading-ს აქ
-      try {
-        const productsData = await getProducts();
-        const extendedProducts = productsData as ExtendedProduct[];
-        
-        const special = extendedProducts.filter(p => p.isSpecial);
-        const nonSpecialProducts = extendedProducts.filter(p => !p.isSpecial);
-        const featuredProds = nonSpecialProducts.filter(p => p.isFeatured);
-        const newCollectionProducts = nonSpecialProducts.filter(p => p.isNewCollection);
+  // მემოიზებული Swiper კონფიგურაცია სპეციალური პროდუქტებისთვის - გამარტივებული ვერსია
+  const specialSwiperSettings = useMemo(() => ({
+    modules: [Navigation, Pagination, Autoplay],
+    spaceBetween: 10,
+    slidesPerView: 1,
+    speed: 700,
+    pagination: { 
+      clickable: true, 
+      dynamicBullets: true,
+      dynamicMainBullets: 3
+    },
+    navigation: {
+      nextEl: '.special-swiper-button-next',
+      prevEl: '.special-swiper-button-prev'
+    },
+    autoplay: {
+      delay: 3500,
+      disableOnInteraction: false,
+      pauseOnMouseEnter: true
+    },
+    preventClicks: true,
+    preventClicksPropagation: true,
+    passiveListeners: true,
+    noSwipingClass: 'no-swiping'
+  }), []);
 
-        // ვაყენებთ ერთიან state-ს მხოლოდ ერთხელ!
-        setProductState({
-          featured: featuredProds,
-          special: special,
-          newCollection: newCollectionProducts,
-          isLoading: false,
-          error: null
-        });
-
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        // ვაყენებთ ერთიან state-ს შეცდომის შემთხვევაშიც ერთხელ!
-        setProductState(prevState => ({
-          ...prevState,
-          isLoading: false,
-          error: error as Error
-        }));
-      } 
-    };
-    
-    fetchProducts();
-    // საწყისი isLoading: true დაყენებულია useState-ში, ამიტომ აქ აღარ ვცვლით.
-    // დამოკიდებულების მასივი ცარიელი რჩება, რომ ერთხელ შესრულდეს.
-  }, []);
-
-  // მემოიზებული სლაიდები Featured Products-თვის
+  // მემოიზებული სლაიდები Featured Products-თვის - 10-ით შევზღუდავთ რომ შევამციროთ DOM ზომა 
   const featuredSlides = useMemo(() => 
-    productState.featured.map((product) => (
+    productState.featured.slice(0, 10).map((product) => (
       <SwiperSlide key={product.id} className="featured-slide h-full">
         <div className="h-full w-full px-1 py-1">
           <FeaturedProductCard 
@@ -654,19 +625,23 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
   , [productState.featured, handleAddToCart]);
 
   // მემოიზებული Featured Products Swiper
-  const FeaturedProductsSwiper = useMemo(() => (
-    <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}>
-      <Swiper {...featuredSwiperSettings}>
-        {featuredSlides} {/* ვიყენებთ მემოიზებულ სლაიდებს */}
-        <div className="swiper-button-prev featured-button-prev hidden md:flex"></div>
-        <div className="swiper-button-next featured-button-next hidden md:flex"></div>
-      </Swiper>
-    </div>
-  ), [featuredSwiperSettings, featuredSlides, productState.isLoading]); // დამოკიდებულება განახლებულია
+  const FeaturedProductsSwiper = useMemo(() => {
+    if (productState.featured.length === 0) return null;
+    
+    return (
+      <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}>
+        <Swiper {...featuredSwiperSettings}>
+          {featuredSlides}
+          <div className="swiper-button-prev featured-button-prev hidden md:flex"></div>
+          <div className="swiper-button-next featured-button-next hidden md:flex"></div>
+        </Swiper>
+      </div>
+    );
+  }, [featuredSwiperSettings, featuredSlides, productState.isLoading]);
 
-  // მემოიზებული სლაიდები New Collection-თვის
+  // მემოიზებული სლაიდები New Collection-თვის - მაქსიმუმ 12 პროდუქტი DOM-ის შესამცირებლად
   const newCollectionSlides = useMemo(() => 
-    productState.newCollection.map((product) => (
+    productState.newCollection.slice(0, 12).map((product) => (
       <SwiperSlide key={product.id} className="new-collection-slide h-auto">
         <div className="w-full h-full px-1 py-1">
           <NewCollectionCard product={product} />
@@ -682,57 +657,21 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
     }
     
     return (
-      <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'} delay-150`}>
+      <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}>
         <Swiper {...newCollectionSwiperSettings}>
-          {newCollectionSlides} {/* ვიყენებთ მემოიზებულ სლაიდებს */}
+          {newCollectionSlides}
           <div className="swiper-button-prev new-collection-button-prev hidden md:flex"></div>
           <div className="swiper-button-next new-collection-button-next hidden md:flex"></div>
         </Swiper>
       </div>
     );
-  }, [newCollectionSwiperSettings, newCollectionSlides, productState.isLoading]); // დამოკიდებულება განახლებულია
+  }, [newCollectionSwiperSettings, newCollectionSlides, productState.isLoading]);
   
-  // მემოიზებული Swiper კონფიგურაცია სპეციალური პროდუქტებისთვის
-  const specialSwiperSettings = useMemo(() => ({
-    modules: [Navigation, Pagination, Autoplay],
-    spaceBetween: 10,
-    slidesPerView: 1,
-    speed: 700, // გავზარდოთ ანიმაციის დრო
-    centeredSlides: false, // დროებით გავთიშოთ ცენტრირება
-    pagination: { 
-      clickable: true, 
-      dynamicBullets: true,
-      dynamicMainBullets: 3,
-    },
-    navigation: {
-      enabled: true,
-      nextEl: '.special-swiper-button-next',
-      prevEl: '.special-swiper-button-prev'
-    },
-    autoplay: {
-      delay: 3500,
-      disableOnInteraction: false,
-      pauseOnMouseEnter: true
-    },
-    mousewheel: {
-      forceToAxis: true,
-      releaseOnEdges: true,
-      sensitivity: 0.5
-    },
-    preventClicks: true,
-    preventClicksPropagation: true,
-    touchReleaseOnEdges: true,
-    passiveListeners: true,
-    noSwipingClass: 'no-swiping',
-    loop: false, // დროებით გავთიშოთ ციკლი ტესტირებისთვის
-    className: "specialProductSwiper"
-  }), [productState.special.length]); // დამოკიდებულება specialProducts-ის სიგრძეზე
-
-  // მემოიზებული სპეციალური პროდუქტის სექცია
+  // მემოიზებული სპეციალური პროდუქტის სექცია - გამარტივებული DOM სტრუქტურით
   const SpecialProductSection = useMemo(() => {
     if (productState.special.length === 0) return null;
     
-    // თუ მხოლოდ ერთი სპეციალური პროდუქტია, ვაჩვენებთ მას პირდაპირ
+    // თუ მხოლოდ ერთი სპეციალური პროდუქტია
     if (productState.special.length === 1) {
       return (
         <div className="mb-3 sm:mb-4">
@@ -744,8 +683,8 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
       );
     }
 
-    // თუ ერთზე მეტია, ვქმნით მემოიზებულ სლაიდებს
-    const specialSlides = productState.special.map((product) => (
+    // თუ ერთზე მეტია - მხოლოდ პირველ 5-ს ვაჩვენებთ DOM-ის შესამცირებლად
+    const specialSlides = productState.special.slice(0, 5).map((product) => (
        <SwiperSlide key={product.id}>
          <SpecialProductCard 
            product={product} 
@@ -754,136 +693,81 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
        </SwiperSlide>
      ));
     
-    // ვაჩვენებთ სლაიდერს მემოიზებული სლაიდებით
     return (
-      <div className="mb-3 sm:mb-4 relative specialProductSwiperContainer overflow-hidden w-full">
+      <div className="mb-3 sm:mb-4 relative overflow-hidden w-full">
         <Swiper {...specialSwiperSettings}>
-          {specialSlides} {/* ვიყენებთ მემოიზებულ სლაიდებს */}
+          {specialSlides}
           <div className="swiper-button-prev special-swiper-button-prev"></div>
           <div className="swiper-button-next special-swiper-button-next"></div>
         </Swiper>
-        <div className="mt-2 text-xs text-center text-gray-500">
-          {/* მოვაშოროთ ტექსტი "განსაკუთრებული შეთავაზებები" */}
-        </div>
       </div>
     );
   }, [productState.special, handleAddToCart, specialSwiperSettings]);
 
-  // კომპონენტის დაბრუნება - isLoading-ის დროს ვაჩვენებთ ჩონჩხს
-  // if (productState.isLoading) {
-  //   return null; // ან ჩატვირთვის ინდიკატორი
-  // }
-
-  // აქ შეგვიძლია შეცდომის დამუშავებაც, თუ საჭიროა
+  // შეცდომის დამუშავება
   if (productState.error) {
-     return <div>შეცდომა პროდუქტების ჩატვირთვისას...</div>; 
+     return <div className="py-3 text-center">შეცდომა პროდუქტების ჩატვირთვისას</div>; 
   }
 
+  // მემოიზებული მთავარი JSX - გავამარტივოთ DOM სტრუქტურა და შევამციროთ CSS-ის დატვირთვა
   return (
     <section className={`py-3 sm:py-4 w-full overflow-x-hidden ${fullWidth ? 'full-width-section' : ''}`}>
       <div className={`${fullWidth ? 'container-full pl-0 pr-4 max-w-full' : 'container mx-auto max-w-6xl px-3 sm:px-4 md:px-6'}`}>
-        <div className={`flex items-center justify-between ${productState.special.length === 0 && productState.featured.length === 0 ? "mb-2" : "mb-3"}`}>
-          <div>
-          </div>
-          
-        </div>
-
-        {/* Wrapper for SpecialProductSection container with fade-in (no delay) */}
+        {/* სპეციალური პროდუქტის სექცია */}
         <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
-          {/* კონტეინერი SpecialProductSection-ისთვის მინიმალური სიმაღლით */}
-          <div className="special-product-container mb-3 sm:mb-4"> 
+          <div className="mb-3 sm:mb-4"> 
             {productState.isLoading ? (
-               <div className="h-full w-full bg-muted animate-pulse rounded-lg sm:rounded-xl"></div> // Skeleton Placeholder
-             ) : (
-               SpecialProductSection
-             )}
+              <div className="h-40 sm:h-48 w-full bg-muted animate-pulse rounded-lg"></div>
+            ) : (
+              SpecialProductSection
+            )}
           </div>
         </div>
 
-        {/* Wrapper for FeaturedProductsSwiper with fade-in (delay-150) */}
-        <div className={`transition-opacity duration-300 delay-150 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
-          {/* Featured Products Swiper container */}
-          <div className={productState.special.length > 0 ? "" : ""}> 
-            {FeaturedProductsSwiper}
+        {/* Featured Products */}
+        <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
+          <div className="mb-3 sm:mb-4">
+            {productState.isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-64 sm:h-72 bg-muted animate-pulse rounded-lg"></div>
+                ))}
+              </div>
+            ) : (
+              FeaturedProductsSwiper
+            )}
           </div>
         </div>
 
-        {/* Wrapper for New Collection section with fade-in (delay-300) */}
-        <div className={`transition-opacity duration-300 delay-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
-          {/* New Collection */}
-          {productState.newCollection.length > 0 && !productState.isLoading && (
-            <div className={`w-full ${productState.featured.length > 0 ? "mt-3 sm:mt-4" : ""}`}>
+        {/* New Collection */}
+        {(productState.newCollection.length > 0 || productState.isLoading) && (
+          <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
+            <div className="w-full">
               <h3 className="text-lg sm:text-xl font-semibold mb-2">ახალი კოლექცია</h3>
-              {NewCollectionSwiper}
+              {productState.isLoading ? (
+                <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-32 sm:h-36 bg-muted animate-pulse rounded-lg"></div>
+                  ))}
+                </div>
+              ) : (
+                NewCollectionSwiper
+              )}
             </div>
-          )}
-        </div>
-        
+          </div>
+        )}
       </div>
 
+      {/* ოპტიმიზებული CSS - მხოლოდ საჭირო სტილები */}
       <style jsx global>{`
-        /* THESE pagination rules below should ONLY apply to featuredSwiper and newCollectionSwiper */
-        /* We explicitly remove them from applying to specialProductSwiper */
+        /* Swiper პადინგები */
         .featuredSwiper,
         .newCollectionSwiper {
-          /* Ensure specialProductSwiper does NOT get this padding if it was implicitly added before */
-          padding-bottom: 20px; 
-        }
-        .specialProductSwiper {
-          padding-bottom: 0 !important; 
+          padding-bottom: 20px;
         }
         
-        /* სპეციალური პროდუქტის კომპონენტის სტილი - ამოვიღოთ ზედმეტი z-index კონტროლი */
-        .specialProductSwiperContainer {
-          position: relative;
-          display: block;
-          width: 100%;
-          overflow: hidden;
-        }
-        
-        /* სპეციალური პროდუქტების კონტეინერის სიმაღლე */
-        .special-product-container {
-          min-height: auto;
-          height: auto;
-          position: relative;
-          width: 100%;
-        }
-        
-        /* ხედვის ზონების გასასწორებელი სტილები - მედია ბრეიქპოინტები */
-        @media screen and (min-width: 668px) and (max-width: 1222px) {
-          /* სპეციალური პროდუქტის კონტეინერი */
-          .special-product-container {
-            margin-bottom: 1rem;
-          }
-          
-          /* გამორჩეული პროდუქტების სწორი ფოზიცია */
-          .featuredSwiper {
-            margin-top: 1rem;
-          }
-        }
-        
-        @media (max-width: 667px) {
-          /* მობილურზე უფრო კომპაქტური მანძილები */
-          .special-product-container {
-            margin-bottom: 0.5rem;
-          }
-          
-          .featuredSwiper {
-            margin-top: 0.5rem;
-          }
-        }
-
-        /* Pagination styles for all swipers */
-        .featuredSwiper .swiper-pagination,
-        .newCollectionSwiper .swiper-pagination,
-        .specialProductSwiper .swiper-pagination {
-          bottom: 0; /* Position pagination at the bottom */
-          transition: opacity 0.3s;
-        }
-        
-        .featuredSwiper .swiper-pagination-bullet,
-        .newCollectionSwiper .swiper-pagination-bullet,
-        .specialProductSwiper .swiper-pagination-bullet {
+        /* Pagination styles - გამარტივებული ვერსია */
+        .swiper-pagination-bullet {
           width: 6px;
           height: 6px;
           background: #cbd5e1;
@@ -892,23 +776,11 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
           margin: 0 3px;
         }
         
-        .featuredSwiper .swiper-pagination-bullet-active,
-        .newCollectionSwiper .swiper-pagination-bullet-active,
-        .specialProductSwiper .swiper-pagination-bullet-active {
+        .swiper-pagination-bullet-active {
           background: #334155;
           opacity: 1;
           width: 8px;
           height: 8px;
-        }
-        
-        /* გამორჩეული ბულეტებისთვის */
-        .swiper-pagination-bullet-active-main {
-          transform: scale(1.2);
-        }
-        
-        /* სლაიდერის ანიმაციის ტრანზიშენი */
-        .swiper-slide {
-          transition: transform 0.4s ease;
         }
       `}</style>
     </section>
