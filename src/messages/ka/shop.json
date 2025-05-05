@@ -1,0 +1,100 @@
+{
+  "homepage": {
+    "featured": "რჩეული პროდუქტები",
+    "popularCategories": "პოპულარული კატეგორიები",
+    "newArrivals": "ახალი შემოსული",
+    "trending": "ტრენდული პროდუქტები",
+    "specialOffers": "სპეციალური შეთავაზებები",
+    "viewAll": "ყველას ნახვა",
+    "viewMore": "მეტის ნახვა",
+    "shopNow": "იყიდე ახლა",
+    "discountBanner": "ფასდაკლება {discount}% ყველა პროდუქტზე"
+  },
+  "productList": {
+    "filter": "ფილტრი",
+    "sort": "დახარისხება",
+    "priceRange": "ფასის დიაპაზონი",
+    "categories": "კატეგორიები",
+    "availability": "ხელმისაწვდომობა",
+    "inStock": "მარაგშია",
+    "outOfStock": "არ არის მარაგში",
+    "apply": "დადასტურება",
+    "reset": "გასუფთავება",
+    "sortOptions": {
+      "newest": "უახლესი",
+      "priceAsc": "ფასი: დაბლიდან მაღლა",
+      "priceDesc": "ფასი: მაღლიდან დაბლა",
+      "popularity": "პოპულარობით"
+    },
+    "noProducts": "პროდუქტები ვერ მოიძებნა",
+    "tryAgain": "სცადეთ სხვა ფილტრები",
+    "loading": "იტვირთება..."
+  },
+  "product": {
+    "filter": "ფილტრი",
+    "clearFilter": "ფილტრის გასუფთავება",
+    "filterAndSort": "პროდუქტების ფილტრაცია და დახარისხება",
+    "price": "ფასი",
+    "min": "მინიმუმი",
+    "max": "მაქსიმუმი",
+    "sort": "დახარისხება",
+    "sortParameters": "დახარისხების პარამეტრები",
+    "selectOption": "აირჩიეთ ვარიანტი",
+    "discount": "მხოლოდ ფასდაკლებით",
+    "closeFilter": "ფილტრის დახურვა",
+    "category": "კატეგორია",
+    "allProducts": "ყველა პროდუქტი",
+    "showAllProducts": "ყველა პროდუქტის ჩვენება",
+    "sortOptions": {
+      "newest": "უახლესი",
+      "oldest": "უძველესი",
+      "priceAsc": "ფასი: დაბლიდან მაღლა",
+      "priceDesc": "ფასი: მაღლიდან დაბლა",
+      "nameAsc": "სახელი: ა-ჰ",
+      "nameDesc": "სახელი: ჰ-ა"
+    },
+    "addToCart": "კალათაში დამატება",
+    "description": "აღწერა",
+    "specifications": "მახასიათებლები",
+    "relatedProducts": "მსგავსი პროდუქტები",
+    "noRelatedProducts": "მსგავსი პროდუქტები ვერ მოიძებნა",
+    "noRelatedProductsWithFilter": "თქვენი ფილტრის კრიტერიუმებს არცერთი პროდუქტი არ შეესაბამება",
+    "loading": "იტვირთება...",
+    "showMore": "მეტის ჩვენება",
+    "discountPercentage": "{percentage}% ფასდაკლება"
+  },
+  "cart": {
+    "title": "კალათა",
+    "empty": "თქვენი კალათა ცარიელია",
+    "emptyDescription": "კალათაში არაფერი გაქვთ დამატებული",
+    "continueShopping": "შოპინგის გაგრძელება",
+    "subtotal": "ჯამი",
+    "shipping": "მიწოდება",
+    "total": "სულ",
+    "checkout": "შეკვეთის გაფორმება",
+    "remove": "წაშლა",
+    "update": "განახლება",
+    "quantity": "რაოდენობა",
+    "itemsCount": "{count} პროდუქტი"
+  },
+  "about": {
+    "title": "ჩვენს შესახებ",
+    "loading": "იტვირთება..."
+  },
+  "promoCode": {
+    "title": "პრომოკოდები",
+    "checkButton": "კოდის შემოწმება",
+    "enterCode": "შეიყვანეთ პრომო კოდი",
+    "validCode": "კოდი ვალიდურია",
+    "invalidCode": "არასწორი კოდი",
+    "discount": "ფასდაკლება: {discount}%",
+    "expiresOn": "ვადა: {date}"
+  },
+  "stock": {
+    "checking": "მარაგის შემოწმება...",
+    "unavailable": "მარაგის ინფორმაცია მიუწვდომელია",
+    "outOfStock": "მარაგი ამოწურულია",
+    "limitedStock": "დარჩენილია {count} ცალი",
+    "inStock": "მარაგშია"
+  }
+} 

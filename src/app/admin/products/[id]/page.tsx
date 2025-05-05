@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/components/providers/language-provider';
 
 // შევცვალეთ ტიპი იმპორტით და გავხადეთ უფრო ზოგადი
 type Props = {
@@ -37,6 +38,7 @@ export default function ProductEditPage({ params }: Props) {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [isSpecial, setIsSpecial] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -51,14 +53,14 @@ export default function ProductEditPage({ params }: Props) {
         }
       } catch (error) {
         console.error('Error fetching product:', error);
-        toast.error('პროდუქტის ჩატვირთვა ვერ მოხერხდა');
+        toast.error(t('admin.categoryNotFound'));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchProduct();
-  }, [id]);
+  }, [id, t]);
 
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,11 +79,11 @@ export default function ProductEditPage({ params }: Props) {
       // ცალკე ფუნქციის გამოძახება სპეციალურ პროდუქტად მოსანიშნად
       await markProductAsSpecial(id, isSpecial);
       
-      toast.success('პროდუქტი წარმატებით განახლდა');
+      toast.success(t('admin.productUpdated'));
       router.push('/admin/products');
     } catch (error) {
       console.error('Error updating product:', error);
-      toast.error('პროდუქტის განახლება ვერ მოხერხდა');
+      toast.error(t('admin.productUpdateError'));
     } finally {
       setIsSaving(false);
     }
@@ -101,12 +103,12 @@ export default function ProductEditPage({ params }: Props) {
     return (
       <AdminLayout>
         <div className="text-center py-12">
-          <h2 className="text-xl font-medium mb-2">პროდუქტი ვერ მოიძებნა</h2>
+          <h2 className="text-xl font-medium mb-2">{t('admin.noProductsFound')}</h2>
           <p className="text-muted-foreground mb-4">
-            მოთხოვნილი პროდუქტი არ არსებობს ან წაშლილია.
+            {t('admin.categoryNotFound')}
           </p>
           <Button onClick={() => router.push('/admin/products')}>
-            პროდუქტების სიაში დაბრუნება
+            {t('admin.productsList')}
           </Button>
         </div>
       </AdminLayout>
@@ -116,18 +118,18 @@ export default function ProductEditPage({ params }: Props) {
   return (
     <AdminLayout>
       <div className="container mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">პროდუქტის რედაქტირება</h1>
+        <h1 className="text-2xl font-bold mb-6">{t('admin.edit')}</h1>
         
         <Card className="w-full max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>პროდუქტის დეტალები</CardTitle>
-            <CardDescription>განაახლეთ პროდუქტის ინფორმაცია</CardDescription>
+            <CardTitle>{t('admin.addNewProductForm.title')}</CardTitle>
+            <CardDescription>{t('admin.addEditDeleteProducts')}</CardDescription>
           </CardHeader>
           
           <form onSubmit={handleUpdateProduct}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">სახელი</Label>
+                <Label htmlFor="name">{t('admin.productName')}</Label>
                 <Input
                   id="name"
                   value={name}
@@ -137,7 +139,7 @@ export default function ProductEditPage({ params }: Props) {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="description">აღწერა</Label>
+                <Label htmlFor="description">{t('product.description')}</Label>
                 <Textarea
                   id="description"
                   value={description}
@@ -148,7 +150,7 @@ export default function ProductEditPage({ params }: Props) {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="price">ფასი (₾)</Label>
+                <Label htmlFor="price">{t('admin.price')} ({t('product.currency')})</Label>
                 <Input
                   id="price"
                   type="number"
@@ -172,14 +174,13 @@ export default function ProductEditPage({ params }: Props) {
                   htmlFor="isSpecial" 
                   className="font-medium text-base cursor-pointer"
                 >
-                  გამოაჩინე სპეციალურ ადგილას
+                  {t('admin.specialStatus')}
                 </Label>
               </div>
               
               <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm">
                 <p className="font-medium text-amber-800">
-                  გაითვალისწინეთ: სპეციალური პროდუქტები გამოჩნდება შოპის გვერდზე გამორჩეულ პოზიციებზე. 
-                  რეკომენდებულია მაქსიმუმ 4 პროდუქტის მონიშვნა.
+                  {t('admin.specialLimit')}
                 </p>
               </div>
             </CardContent>
@@ -191,12 +192,12 @@ export default function ProductEditPage({ params }: Props) {
                 onClick={() => router.push('/admin/products')}
                 disabled={isSaving}
               >
-                გაუქმება
+                {t('admin.cancel')}
               </Button>
               
               <Button type="submit" disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                შენახვა
+                {t('admin.save')}
               </Button>
             </CardFooter>
           </form>

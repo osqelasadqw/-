@@ -35,6 +35,42 @@ import {
 // დებაგინგის ინსტრუმენტები
 const DEBUG_MODE = false; // შეგიძლიათ გადართოთ false-ზე პროდაქშენში
 
+// კეშირების სისტემა ფაირბეისის მოთხოვნების შესამცირებლად
+const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 წუთი
+interface CacheItem<T> {
+  data: T;
+  timestamp: number;
+}
+
+// ქეშის სისტემა
+const cache: Record<string, CacheItem<any>> = {};
+
+// ქეშისთვის ფუნქცია
+function getFromCacheOrFetch<T>(
+  cacheKey: string, 
+  fetchFn: () => Promise<T>, 
+  expiry: number = CACHE_EXPIRY_MS
+): Promise<T> {
+  const cachedItem = cache[cacheKey];
+  const now = Date.now();
+  
+  // თუ ქეშში არსებობს და არ არის ვადაგასული
+  if (cachedItem && (now - cachedItem.timestamp) < expiry) {
+    console.log(`[Cache hit] ${cacheKey}`);
+    return Promise.resolve(cachedItem.data);
+  }
+  
+  // თუ ქეშში არ არის ან ვადაგასულია
+  return fetchFn().then(data => {
+    cache[cacheKey] = {
+      data,
+      timestamp: now
+    };
+    console.log(`[Cache miss] ${cacheKey}`);
+    return data;
+  });
+}
+
 /**
  * დეტალური დებაგინგის ფუნქცია Firebase ოპერაციებისთვის
  * @param operation - ოპერაციის სახელი 
@@ -453,37 +489,41 @@ export const deleteCategory = async (id: string): Promise<void> => {
 
 // Products
 export const getProducts = async (): Promise<Product[]> => {
+  return getFromCacheOrFetch('all-products', async () => {
   try {
-    const productsRef = collection(db, 'products');
-    const productsSnapshot = await getDocs(productsRef);
-    
+      const productsSnapshot = await getDocs(collection(db, 'products'));
     return productsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    } as Product));
+      }) as Product);
   } catch (error) {
-    console.error('Error getting products:', error);
+      logFirebaseError('getProducts', error);
     return [];
   }
+  });
 };
 
 export const getProductsByCategory = async (categoryId: string): Promise<Product[]> => {
+  return getFromCacheOrFetch(`products-by-category-${categoryId}`, async () => {
   try {
-    const productsRef = collection(db, 'products');
-    const q = query(productsRef, where('categoryId', '==', categoryId));
-    const productsSnapshot = await getDocs(q);
-    
-    return productsSnapshot.docs.map(doc => ({
+      const q = query(
+        collection(db, 'products'),
+        where('categoryId', '==', categoryId)
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    } as Product));
+      }) as Product);
   } catch (error) {
-    console.error('Error getting products by category:', error);
+      logFirebaseError('getProductsByCategory', error);
     return [];
   }
+  });
 };
 
 export const getProductById = async (id: string): Promise<Product | null> => {
+  return getFromCacheOrFetch(`product-${id}`, async () => {
   try {
     const productRef = doc(db, 'products', id);
     const productSnapshot = await getDoc(productRef);
@@ -500,6 +540,7 @@ export const getProductById = async (id: string): Promise<Product | null> => {
     console.error('Error getting product:', error);
     return null;
   }
+  });
 };
 
 export const createProduct = async (
@@ -755,32 +796,24 @@ export const updateUserRole = async (userId: string, isAdmin: boolean): Promise<
 export const getPaginatedProductImages = async (
   productId: string,
   startIndex: number = 0,
-  limit: number = 10,
-  gridColumns: number = 2
+  limit: number = 10
 ): Promise<{images: string[], totalCount: number}> => {
-  try {
-    const productRef = doc(db, 'products', productId);
-    const productSnap = await getDoc(productRef);
+  return getFromCacheOrFetch(`product-images-${productId}-${startIndex}-${limit}`, async () => {
+    // დავიჭიროთ პროდუქტი ქეშიდან, რადგან სავარაუდოდ უკვე იქნება ჩატვირთული
+    const product = await getProductById(productId);
     
-    if (!productSnap.exists()) {
-      return {images: [], totalCount: 0};
+    if (!product || !product.images) {
+      return { images: [], totalCount: 0 };
     }
     
-    const productData = productSnap.data();
-    const allImages = productData.images || [];
-    const totalCount = allImages.length;
-    
-    // Return paginated results
-    const paginatedImages = allImages.slice(startIndex, startIndex + limit);
+    // ლიმიტირებული სურათები
+    const paginatedImages = product.images.slice(startIndex, startIndex + limit);
     
     return {
       images: paginatedImages,
-      totalCount
+      totalCount: product.images.length
     };
-  } catch (error) {
-    console.error('Error getting paginated product images:', error);
-    return {images: [], totalCount: 0};
-  }
+  }, 10 * 60 * 1000); // 10 წუთი ქეშირება სურათებისთვის
 };
 
 // ლიმიტის კონსტანტები

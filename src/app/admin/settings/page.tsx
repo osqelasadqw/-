@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useLanguage } from '@/components/providers/language-provider';
 
 interface SiteSettings {
   address: string;
@@ -34,6 +35,7 @@ export default function AdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [productsPerLoadInput, setProductsPerLoadInput] = useState('');
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -47,14 +49,14 @@ export default function AdminSettingsPage() {
         }
       } catch (error) {
         console.error("Error loading settings:", error);
-        setError("პარამეტრების ჩატვირთვისას მოხდა შეცდომა. გთხოვთ, სცადოთ თავიდან.");
-        toast.error("პარამეტრების ჩატვირთვისას მოხდა შეცდომა");
+        setError(t('admin.loadingSettingsError'));
+        toast.error(t('admin.loadingSettingsError'));
       } finally {
         setIsLoading(false);
       }
     };
     loadSettings();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     setProductsPerLoadInput(settings.productsPerLoad?.toString() || '');
@@ -93,8 +95,8 @@ export default function AdminSettingsPage() {
     const numValue = parseInt(productsPerLoadInput);
 
     if (isNaN(numValue) || numValue < 1 || numValue > 50) {
-      setError("პროდუქტების რაოდენობა ერთ ჩატვირთვაზე უნდა იყოს 1-დან 50-მდე.");
-      toast.error("არასწორი მნიშვნელობა: პროდუქტების რაოდენობა.");
+      setError(t('admin.invalidProductCount'));
+      toast.error(t('admin.invalidProductCount'));
       setIsSaving(false); // Ensure saving state is reset if validation fails early
       return; // Stop the saving process
     }
@@ -111,11 +113,11 @@ export default function AdminSettingsPage() {
       await updateSettings(settingsToSave);
       // Update the main state as well after successful save
       setSettings(settingsToSave);
-      toast.success("პარამეტრები წარმატებით განახლდა");
+      toast.success(t('admin.settingsUpdated'));
     } catch (error) {
       console.error("Error saving settings:", error);
-      setError("პარამეტრების შენახვისას მოხდა შეცდომა. გთხოვთ, სცადოთ თავიდან.");
-      toast.error("პარამეტრების შენახვისას მოხდა შეცდომა");
+      setError(t('admin.savingSettingsError'));
+      toast.error(t('admin.savingSettingsError'));
     } finally {
       setIsSaving(false);
     }
@@ -134,95 +136,95 @@ export default function AdminSettingsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">საიტის პარამეტრები</h1>
+        <h1 className="text-2xl font-bold">{t('admin.siteSettings')}</h1>
         
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>შეცდომა</AlertTitle>
+            <AlertTitle>{t('admin.error')}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         
         <div className="bg-white p-6 rounded-lg shadow space-y-4">
-          <h2 className="text-xl font-semibold border-b pb-2">საკონტაქტო ინფორმაცია (Footer)</h2>
+          <h2 className="text-xl font-semibold border-b pb-2">{t('admin.contactInfo')}</h2>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="address">მისამართი</Label>
+              <Label htmlFor="address">{t('admin.address')}</Label>
               <Input 
                 id="address"
                 name="address"
                 value={settings.address}
                 onChange={handleInputChange}
-                placeholder="მაგ: თბილისი, საქართველო"
+                placeholder={t('admin.enterAddress')}
               />
             </div>
             <div>
-              <Label htmlFor="email">ელ-ფოსტა</Label>
+              <Label htmlFor="email">{t('admin.email')}</Label>
               <Input 
                 id="email"
                 name="email"
                 type="email"
                 value={settings.email}
                 onChange={handleInputChange}
-                placeholder="მაგ: info@example.com"
+                placeholder={t('admin.enterEmail')}
               />
             </div>
             <div>
-              <Label htmlFor="phone">ტელეფონის ნომერი</Label>
+              <Label htmlFor="phone">{t('admin.phone')}</Label>
               <Input 
                 id="phone"
                 name="phone"
                 value={settings.phone}
                 onChange={handleInputChange}
-                placeholder="მაგ: +995 555 123 456"
+                placeholder={t('admin.enterPhone')}
               />
             </div>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow space-y-4">
-          <h2 className="text-xl font-semibold border-b pb-2">&quot;ჩვენს შესახებ&quot; გვერდის ტექსტი</h2>
+          <h2 className="text-xl font-semibold border-b pb-2">{t('admin.aboutPageText')}</h2>
           <div>
-            <Label htmlFor="aboutUsContent">ტექსტი</Label>
+            <Label htmlFor="aboutUsContent">{t('admin.text')}</Label>
             <Textarea
               id="aboutUsContent"
               name="aboutUsContent"
               value={settings.aboutUsContent}
               onChange={handleInputChange}
-              placeholder="შეიყვანეთ ტექსტი, რომელიც გამოჩნდება &apos;ჩვენს შესახებ&apos; გვერდზე"
+              placeholder={t('admin.enterAboutText')}
               rows={10}
             />
-            <p className="text-xs text-muted-foreground mt-1">შეგიძლიათ გამოიყენოთ მარტივი ტექსტი.</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('admin.simpleText')}</p>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow space-y-4">
-          <h2 className="text-xl font-semibold border-b pb-2">მაღაზიის პროდუქტების ჩატვირთვის პარამეტრები</h2>
+          <h2 className="text-xl font-semibold border-b pb-2">{t('admin.shopProductsLoadingSettings')}</h2>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="loadingType">ჩატვირთვის ტიპი</Label>
+              <Label htmlFor="loadingType">{t('admin.loadingType')}</Label>
               <Select
                 value={settings.loadingType}
                 onValueChange={(value) => setSettings(prev => ({ ...prev, loadingType: value as 'infinite' | 'button' }))}
               >
                 <SelectTrigger id="loadingType" className="w-full">
-                  <SelectValue placeholder="აირჩიეთ ჩატვირთვის ტიპი" />
+                  <SelectValue placeholder={t('admin.selectLoadingType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="infinite">ეტაპობრივი ჩატვირთვა (სქროლით)</SelectItem>
-                  <SelectItem value="button">მეტის ჩატვირთვა (ღილაკით)</SelectItem>
+                  <SelectItem value="infinite">{t('admin.infiniteLoading')}</SelectItem>
+                  <SelectItem value="button">{t('admin.buttonLoading')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                ეტაპობრივი ჩატვირთვა: მომხმარებელი ბოლომდე ჩასქროლვისას ავტომატურად ჩაიტვირთება მეტი პროდუქტი.
+                {t('admin.infiniteLoadingDescription')}
                 <br />
-                მეტის ჩატვირთვა: ნაჩვენები იქნება ღილაკი, რომელზე დაჭერითაც მომხმარებელი ჩატვირთავს მეტ პროდუქტს.
+                {t('admin.buttonLoadingDescription')}
               </p>
             </div>
             
             <div>
-              <Label htmlFor="productsPerLoad">პროდუქტების რაოდენობა ერთ ჩატვირთვაზე</Label>
+              <Label htmlFor="productsPerLoad">{t('admin.productsPerLoad')}</Label>
               <Input
                 id="productsPerLoad"
                 name="productsPerLoad"
@@ -234,8 +236,7 @@ export default function AdminSettingsPage() {
                 placeholder="1-50"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                სვეტების რაოდენობა, რომელიც ჩატვირთული იქნება ერთ ჯერზე. 
-                ეკრანის ზომის მიხედვით სვეტების რიცხვი მერყეობს 2-დან 5-მდე, შესაბამისად ეს რიცხვი გამრავლდება ეკრანზე ნაჩვენები სვეტების რაოდენობაზე.
+                {t('admin.productsPerLoadDescription')}
               </p>
             </div>
           </div>
@@ -243,7 +244,7 @@ export default function AdminSettingsPage() {
 
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'მიმდინარეობს შენახვა...' : 'ცვლილებების შენახვა'}
+            {isSaving ? t('admin.saving') : t('admin.saveChanges')}
           </Button>
         </div>
       </div>

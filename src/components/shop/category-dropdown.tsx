@@ -8,6 +8,7 @@ import { Category, Product } from '@/types';
 import { getCategories, getProductsByCategory } from '@/lib/firebase-service';
 import { ChevronDown, Pin, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/components/providers/language-provider';
 
 // მემოიზებული ჩევრონის აიკონი
 const MemoizedChevronDown = memo(function MemoizedChevronDown({ 
@@ -28,6 +29,7 @@ export const CategoryDropdown = memo(function CategoryDropdownComponent() {
   const [categoryProducts, setCategoryProducts] = useState<Record<string, Product[]>>({});
   const router = useRouter();
   const [closeTimerId, setCloseTimerId] = useState<NodeJS.Timeout | null>(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -107,7 +109,7 @@ export const CategoryDropdown = memo(function CategoryDropdownComponent() {
           onClick={handleToggleDropdown}
           suppressHydrationWarning
         >
-          კატეგორიები
+          {t('header.categories')}
           <MemoizedChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
       </div>
@@ -127,7 +129,7 @@ export const CategoryDropdown = memo(function CategoryDropdownComponent() {
                 <div className="px-4 py-2 text-sm text-gray-500">
                   <div className="flex items-center">
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    იტვირთება...
+                    {t('product.loading')}
                   </div>
                 </div>
               ) : (
@@ -209,7 +211,7 @@ export const CategoryDropdown = memo(function CategoryDropdownComponent() {
                               </div>
                             ) : (
                               <div className="h-full w-full flex items-center justify-center bg-gray-100 text-gray-400">
-                                <span className="text-sm font-medium">სურათი არ არის</span>
+                                <span className="text-sm font-medium">{t('product.noImage')}</span>
                               </div>
                             )}
                           </div>
@@ -219,13 +221,13 @@ export const CategoryDropdown = memo(function CategoryDropdownComponent() {
                       ))
                     ) : categoryProducts[hoveredCategory] ? (
                       <div className="col-span-3 text-center py-8 text-sm text-gray-500 min-h-[300px] flex items-center justify-center">
-                        პროდუქტები არ მოიძებნა
+                        {t('product.noProductsFound')}
                       </div>
                     ) : (
                       <div className="col-span-3 text-center py-8 min-h-[300px] flex items-center justify-center">
                         <div className="flex items-center justify-center space-x-2">
                           <div className="h-4 w-4 bg-gray-200 rounded-full animate-pulse"></div>
-                          <span className="text-sm text-gray-500">იტვირთება...</span>
+                          <span className="text-sm text-gray-500">{t('product.loading')}</span>
                         </div>
                       </div>
                     )}
@@ -233,7 +235,7 @@ export const CategoryDropdown = memo(function CategoryDropdownComponent() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-sm text-gray-500 min-h-[300px] flex items-center justify-center">
-                  აირჩიეთ კატეგორია მარცხნივ
+                  {t('product.selectCategory')}
                 </div>
               )}
             </div>

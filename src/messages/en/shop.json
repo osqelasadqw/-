@@ -1,0 +1,100 @@
+{
+  "homepage": {
+    "featured": "Featured Products",
+    "popularCategories": "Popular Categories",
+    "newArrivals": "New Arrivals",
+    "trending": "Trending Products",
+    "specialOffers": "Special Offers",
+    "viewAll": "View All",
+    "viewMore": "View More",
+    "shopNow": "Shop Now",
+    "discountBanner": "{discount}% Off All Products"
+  },
+  "productList": {
+    "filter": "Filter",
+    "sort": "Sort",
+    "priceRange": "Price Range",
+    "categories": "Categories",
+    "availability": "Availability",
+    "inStock": "In Stock",
+    "outOfStock": "Out of Stock",
+    "apply": "Apply",
+    "reset": "Reset",
+    "sortOptions": {
+      "newest": "Newest",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low",
+      "popularity": "Popularity"
+    },
+    "noProducts": "No Products Found",
+    "tryAgain": "Try different filters",
+    "loading": "Loading..."
+  },
+  "product": {
+    "filter": "Filter",
+    "clearFilter": "Clear Filter",
+    "filterAndSort": "Filter and sort products",
+    "price": "Price",
+    "min": "Min",
+    "max": "Max",
+    "sort": "Sort",
+    "sortParameters": "Sort parameters",
+    "selectOption": "Select option",
+    "discount": "Discounted only",
+    "closeFilter": "Close filter",
+    "category": "Category",
+    "allProducts": "All Products",
+    "showAllProducts": "Show all products",
+    "sortOptions": {
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low",
+      "nameAsc": "Name: A-Z",
+      "nameDesc": "Name: Z-A"
+    },
+    "addToCart": "Add to Cart",
+    "description": "Description",
+    "specifications": "Specifications",
+    "relatedProducts": "Related Products",
+    "noRelatedProducts": "No related products found",
+    "noRelatedProductsWithFilter": "No products match your filter criteria",
+    "loading": "Loading...",
+    "showMore": "Show More",
+    "discountPercentage": "{percentage}% Off"
+  },
+  "cart": {
+    "title": "Shopping Cart",
+    "empty": "Your cart is empty",
+    "emptyDescription": "You have no items in your cart",
+    "continueShopping": "Continue Shopping",
+    "subtotal": "Subtotal",
+    "shipping": "Shipping",
+    "total": "Total",
+    "checkout": "Checkout",
+    "remove": "Remove",
+    "update": "Update",
+    "quantity": "Quantity",
+    "itemsCount": "{count} items"
+  },
+  "about": {
+    "title": "About Us",
+    "loading": "Loading..."
+  },
+  "promoCode": {
+    "title": "Promo Codes",
+    "checkButton": "Check Code",
+    "enterCode": "Enter promo code",
+    "validCode": "Valid Code",
+    "invalidCode": "Invalid Code",
+    "discount": "Discount: {discount}%",
+    "expiresOn": "Expires on: {date}"
+  },
+  "stock": {
+    "checking": "Checking stock...",
+    "unavailable": "Stock information unavailable",
+    "outOfStock": "Out of stock",
+    "limitedStock": "Only {count} left",
+    "inStock": "In stock"
+  }
+} 

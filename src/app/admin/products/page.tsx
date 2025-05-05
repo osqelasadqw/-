@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AdminLayout } from '@/components/layouts/admin-layout';
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/components/providers/language-provider';
 
 // ტიპების გაფართოება
 interface ExtendedProduct extends Product {
@@ -66,6 +67,7 @@ export default function AdminProducts() {
   const [loadingState, setLoadingState] = useState<{ productId: string | null, type: string | null }>({ productId: null, type: null });
 
   const router = useRouter();
+  const { t, locale } = useLanguage();
 
   const fetchData = async () => {
     try {
@@ -89,8 +91,8 @@ export default function AdminProducts() {
       console.error('Error fetching products data:', error);
       toast({
         variant: "destructive",
-        title: "შეცდომა",
-        description: "პროდუქტების ჩატვირთვა ვერ მოხერხდა"
+        title: t('admin.error'),
+        description: t('admin.dataRetrievalError')
       });
     } finally {
       setIsLoading(false);
@@ -122,15 +124,15 @@ export default function AdminProducts() {
       await deleteProduct(productToDelete);
       setProducts(products.filter(p => p.id !== productToDelete));
       toast({
-        title: "წარმატება",
-        description: "პროდუქტი წაიშალა"
+        title: t('admin.success'),
+        description: t('admin.productDeleted')
       });
     } catch (error) {
       console.error('Error deleting product:', error);
       toast({
         variant: "destructive", 
-        title: "შეცდომა", 
-        description: "პროდუქტის წაშლა ვერ მოხერხდა"
+        title: t('admin.error'), 
+        description: t('admin.deleteError')
       });
     } finally {
       setIsDeleting(false);
@@ -145,8 +147,8 @@ export default function AdminProducts() {
   const handleToggleSpecial = async (productId: string, currentValue: boolean) => {
     if (specialProductsCount >= 10 && !currentValue) {
       toast({
-        title: "ლიმიტი მიღწეულია",
-        description: "შესაძლებელია მაქსიმუმ 10 სპეციალური პროდუქტის მონიშვნა.",
+        title: t('admin.limitReached'),
+        description: t('admin.specialLimit'),
         variant: "destructive",
       });
       return;
@@ -159,12 +161,16 @@ export default function AdminProducts() {
         prev.map(p => p.id === productId ? updatedProduct as ExtendedProduct : p)
       );
       toast({
-        title: "წარმატება",
-        description: `პროდუქტი ${!currentValue ? 'დაემატა' : 'მოიხსნა'} სპეციალურებიდან.`,
+        title: t('admin.success'),
+        description: !currentValue ? t('admin.addedToSpecial') : t('admin.removedFromSpecial'),
       });
     } catch (error) {
       console.error("Error toggling special status:", error);
-      toast({ title: "შეცდომა", description: "სპეციალური სტატუსის განახლება ვერ მოხერხდა.", variant: "destructive" });
+      toast({ 
+        title: t('admin.error'), 
+        description: t('admin.specialUpdateError'), 
+        variant: "destructive" 
+      });
     } finally {
       setLoadingState({ productId: null, type: null });
     }
@@ -173,8 +179,8 @@ export default function AdminProducts() {
   const handleToggleFeatured = async (productId: string, currentValue: boolean) => {
     if (featuredProductsCount >= 20 && !currentValue) {
       toast({
-        title: "ლიმიტი მიღწეულია",
-        description: "შესაძლებელია მაქსიმუმ 20 გამორჩეული პროდუქტის მონიშვნა.",
+        title: t('admin.limitReached'),
+        description: t('admin.featuredLimit'),
         variant: "destructive",
       });
       return;
@@ -187,12 +193,16 @@ export default function AdminProducts() {
         prev.map(p => p.id === productId ? updatedProduct as ExtendedProduct : p)
       );
       toast({
-        title: "წარმატება",
-        description: `პროდუქტი ${!currentValue ? 'დაემატა' : 'მოიხსნა'} გამორჩეულებიდან.`,
+        title: t('admin.success'),
+        description: !currentValue ? t('admin.addedToFeatured') : t('admin.removedFromFeatured'),
       });
     } catch (error) {
       console.error("Error toggling featured status:", error);
-      toast({ title: "შეცდომა", description: "გამორჩეული სტატუსის განახლება ვერ მოხერხდა.", variant: "destructive" });
+      toast({ 
+        title: t('admin.error'), 
+        description: t('admin.featuredUpdateError'), 
+        variant: "destructive" 
+      });
     } finally {
       setLoadingState({ productId: null, type: null });
     }
@@ -201,8 +211,8 @@ export default function AdminProducts() {
   const handleToggleNewCollection = async (productId: string, currentValue: boolean) => {
     if (newCollectionProductsCount >= 20 && !currentValue) {
       toast({
-        title: "ლიმიტი მიღწეულია",
-        description: "შესაძლებელია მაქსიმუმ 20 ახალი კოლექციის პროდუქტის მონიშვნა.",
+        title: t('admin.limitReached'),
+        description: t('admin.newCollectionLimit'),
         variant: "destructive",
       });
       return;
@@ -215,12 +225,16 @@ export default function AdminProducts() {
         prev.map(p => p.id === productId ? updatedProduct as ExtendedProduct : p)
       );
       toast({
-        title: "წარმატება",
-        description: `პროდუქტი ${!currentValue ? 'დაემატა' : 'მოიხსნა'} ახალი კოლექციიდან.`,
+        title: t('admin.success'),
+        description: !currentValue ? t('admin.addedToNewCollection') : t('admin.removedFromNewCollection'),
       });
     } catch (error) {
       console.error("Error toggling new collection status:", error);
-      toast({ title: "შეცდომა", description: "ახალი კოლექციის სტატუსის განახლება ვერ მოხერხდა.", variant: "destructive" });
+      toast({ 
+        title: t('admin.error'), 
+        description: t('admin.newCollectionUpdateError'), 
+        variant: "destructive" 
+      });
     } finally {
       setLoadingState({ productId: null, type: null });
     }
@@ -231,7 +245,10 @@ export default function AdminProducts() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ka-GE', {
+    // მიმდინარე ენის შესაბამისი ვალუტის ფორმატი
+    const localeFormat = locale === 'en' ? 'en-US' : 'ka-GE';
+    
+    return new Intl.NumberFormat(localeFormat, {
       style: 'currency',
       currency: 'GEL',
     }).format(amount);
@@ -243,13 +260,13 @@ export default function AdminProducts() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div>
-              <CardTitle>პროდუქტების მართვა</CardTitle>
+              <CardTitle>{t('admin.productsManagement')}</CardTitle>
               <CardDescription>
-                დაამატეთ, შეცვალეთ ან წაშალეთ პროდუქტები
+                {t('admin.addEditDeleteProducts')}
               </CardDescription>
             </div>
             <Link href="/admin/products/new">
-              <Button><Plus className="mr-2 h-4 w-4" /> პროდუქტის დამატება</Button>
+              <Button><Plus className="mr-2 h-4 w-4" /> {t('admin.addProduct')}</Button>
             </Link>
           </div>
         </CardHeader>
@@ -260,7 +277,7 @@ export default function AdminProducts() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="პროდუქტების ძიება..."
+                  placeholder={t('admin.productSearch')}
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -272,17 +289,17 @@ export default function AdminProducts() {
             <div className="px-4 py-3 bg-gray-50 border-b flex items-center space-x-3 sm:space-x-6 overflow-x-auto text-xs sm:text-sm">
               <div className="flex items-center flex-shrink-0">
                 <Star className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400 fill-yellow-400 mr-1 sm:mr-2 flex-shrink-0" />
-                <span className="font-medium whitespace-nowrap">სპეციალური</span>
+                <span className="font-medium whitespace-nowrap">{t('admin.special')}</span>
                 <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({specialProductsCount}/10)</span>
               </div>
               <div className="flex items-center flex-shrink-0">
                 <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500 fill-amber-500 mr-1 sm:mr-2 flex-shrink-0" />
-                <span className="font-medium whitespace-nowrap">გამორჩეული</span>
+                <span className="font-medium whitespace-nowrap">{t('admin.featured')}</span>
                 <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({featuredProductsCount}/20)</span>
               </div>
               <div className="flex items-center flex-shrink-0">
                 <PackageOpen className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500 fill-emerald-500 mr-1 sm:mr-2 flex-shrink-0" />
-                <span className="font-medium whitespace-nowrap">ახალი კოლექცია</span>
+                <span className="font-medium whitespace-nowrap">{t('admin.newCollection')}</span>
                 <span className="text-gray-500 ml-1 sm:ml-2 whitespace-nowrap">({newCollectionProductsCount}/20)</span>
               </div>
             </div>
@@ -304,7 +321,7 @@ export default function AdminProducts() {
             ) : filteredProducts.length === 0 ? (
               <div className="p-8 text-center">
                 <p className="text-muted-foreground">
-                  {searchTerm ? 'პროდუქტები ვერ მოიძებნა.' : 'პროდუქტები არ არის დამატებული.'}
+                  {searchTerm ? t('admin.noProductsFound') : t('admin.noProducts')}
                 </p>
                 {searchTerm && (
                   <Button
@@ -312,7 +329,7 @@ export default function AdminProducts() {
                     onClick={() => setSearchTerm('')}
                     className="mt-2"
                   >
-                    ძიების გასუფთავება
+                    {t('admin.clearSearch')}
                   </Button>
                 )}
               </div>
@@ -354,7 +371,7 @@ export default function AdminProducts() {
                           <button 
                             onClick={() => handleToggleSpecial(product.id, Boolean(product.isSpecial))}
                             className="focus:outline-none relative"
-                            title={product.isSpecial ? "სპეციალური პროდუქტებიდან მოხსნა" : "სპეციალურ პროდუქტებში დამატება"}
+                            title={product.isSpecial ? t('admin.removedFromSpecial') : t('admin.addedToSpecial')}
                             disabled={loadingState.productId === product.id}
                           >
                             {loadingState.productId === product.id && loadingState.type === 'special' ? (
@@ -369,7 +386,7 @@ export default function AdminProducts() {
                           <button 
                             onClick={() => handleToggleFeatured(product.id, Boolean(product.isFeatured))}
                             className="focus:outline-none relative"
-                            title={product.isFeatured ? "გამორჩეული პროდუქტებიდან მოხსნა" : "გამორჩეულ პროდუქტებში დამატება"}
+                            title={product.isFeatured ? t('admin.removedFromFeatured') : t('admin.addedToFeatured')}
                             disabled={loadingState.productId === product.id}
                           >
                             {loadingState.productId === product.id && loadingState.type === 'featured' ? (
@@ -384,7 +401,7 @@ export default function AdminProducts() {
                           <button 
                             onClick={() => handleToggleNewCollection(product.id, Boolean(product.isNewCollection))}
                             className="focus:outline-none relative"
-                            title={product.isNewCollection ? "ახალი კოლექციიდან მოხსნა" : "ახალ კოლექციაში დამატება"}
+                            title={product.isNewCollection ? t('admin.removedFromNewCollection') : t('admin.addedToNewCollection')}
                             disabled={loadingState.productId === product.id}
                           >
                             {loadingState.productId === product.id && loadingState.type === 'newCollection' ? (
@@ -416,14 +433,14 @@ export default function AdminProducts() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>დარწმუნებული ხართ?</AlertDialogTitle>
+                                <AlertDialogTitle>{t('admin.deleteConfirmation')}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  ამ მოქმედების გაუქმება შეუძლებელია. პროდუქტი {`"${products.find(p => p.id === productToDelete)?.name || ''}"`} წაიშლება მონაცემთა ბაზიდან.
+                                  {t('admin.deleteWarning')} {`"${products.find(p => p.id === productToDelete)?.name || ''}"`}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel onClick={() => setProductToDelete(null)}>
-                                  გაუქმება
+                                  {t('admin.cancel')}
                                 </AlertDialogCancel>
                                 <AlertDialogAction 
                                   onClick={handleDeleteProduct}
@@ -431,7 +448,7 @@ export default function AdminProducts() {
                                   disabled={isDeleting}
                                 >
                                   {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                  წაშლა
+                                  {t('admin.delete')}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -447,19 +464,19 @@ export default function AdminProducts() {
                   <thead className="sticky top-0 bg-gray-50 z-10">
                     <tr className="bg-gray-50">
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        პროდუქტი
+                        {t('admin.table.product')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        ფასი
+                        {t('admin.table.price')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        კატეგორია
+                        {t('admin.table.category')}
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        მარკირება
+                        {t('admin.table.tags')}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        მოქმედებები
+                        {t('admin.table.actions')}
                       </th>
                     </tr>
                   </thead>
@@ -499,7 +516,7 @@ export default function AdminProducts() {
                             <button 
                               onClick={() => handleToggleSpecial(product.id, Boolean(product.isSpecial))}
                               className="focus:outline-none relative"
-                              title={product.isSpecial ? "სპეციალური პროდუქტებიდან მოხსნა" : "სპეციალურ პროდუქტებში დამატება"}
+                              title={product.isSpecial ? t('admin.removedFromSpecial') : t('admin.addedToSpecial')}
                               disabled={loadingState.productId === product.id}
                             >
                               {loadingState.productId === product.id && loadingState.type === 'special' ? (
@@ -514,7 +531,7 @@ export default function AdminProducts() {
                             <button 
                               onClick={() => handleToggleFeatured(product.id, Boolean(product.isFeatured))}
                               className="focus:outline-none relative"
-                              title={product.isFeatured ? "გამორჩეული პროდუქტებიდან მოხსნა" : "გამორჩეულ პროდუქტებში დამატება"}
+                              title={product.isFeatured ? t('admin.removedFromFeatured') : t('admin.addedToFeatured')}
                               disabled={loadingState.productId === product.id}
                             >
                               {loadingState.productId === product.id && loadingState.type === 'featured' ? (
@@ -529,7 +546,7 @@ export default function AdminProducts() {
                             <button 
                               onClick={() => handleToggleNewCollection(product.id, Boolean(product.isNewCollection))}
                               className="focus:outline-none relative"
-                              title={product.isNewCollection ? "ახალი კოლექციიდან მოხსნა" : "ახალ კოლექციაში დამატება"}
+                              title={product.isNewCollection ? t('admin.removedFromNewCollection') : t('admin.addedToNewCollection')}
                               disabled={loadingState.productId === product.id}
                             >
                               {loadingState.productId === product.id && loadingState.type === 'newCollection' ? (
@@ -561,14 +578,14 @@ export default function AdminProducts() {
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>დარწმუნებული ხართ?</AlertDialogTitle>
+                                  <AlertDialogTitle>{t('admin.deleteConfirmation')}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    ამ მოქმედების გაუქმება შეუძლებელია. პროდუქტი {`"${products.find(p => p.id === productToDelete)?.name || ''}"`} წაიშლება მონაცემთა ბაზიდან.
+                                    {t('admin.deleteWarning')} {`"${products.find(p => p.id === productToDelete)?.name || ''}"`}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel onClick={() => setProductToDelete(null)}>
-                                    გაუქმება
+                                    {t('admin.cancel')}
                                   </AlertDialogCancel>
                                   <AlertDialogAction 
                                     onClick={handleDeleteProduct}
@@ -576,7 +593,7 @@ export default function AdminProducts() {
                                     disabled={isDeleting}
                                   >
                                     {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    წაშლა
+                                    {t('admin.delete')}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -597,11 +614,10 @@ export default function AdminProducts() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>პროდუქტის წაშლა</DialogTitle>
+            <DialogTitle>{t('admin.delete')}</DialogTitle>
             <DialogDescription>
-              დარწმუნებული ხართ, რომ გსურთ წაშალოთ &quot;{currentProduct?.name}&quot;?
-              ასევე წაიშლება ყველა ფოტო.
-              ეს მოქმედება ვერ გაუქმდება.
+              {t('admin.deleteConfirmation')} &quot;{currentProduct?.name}&quot;?
+              {t('admin.deleteWarning')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -609,7 +625,7 @@ export default function AdminProducts() {
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
             >
-              გაუქმება
+              {t('admin.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -620,7 +636,7 @@ export default function AdminProducts() {
                 setIsDeleteDialogOpen(false);
               }}
             >
-              პროდუქტის წაშლა
+              {t('admin.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Product } from "@/types"
 import { getProducts } from "@/lib/firebase-service"
 import { useCart } from "@/components/providers/cart-provider"
+import { useLanguage } from "@/components/providers/language-provider"
 
 // Import Swiper styles
 import 'swiper/css'
@@ -75,7 +76,12 @@ const FeaturedProductCard = memo(({
   const [isDragging, setIsDragging] = useState(false);
   const startPos = useRef<{ x: number; y: number } | null>(null);
   const DRAG_THRESHOLD = 10; // Pixels
-
+  const { t, locale } = useLanguage();
+  
+  // დებაგინგისთვის, ამოიღეთ პროდაქშენში
+  const featuredText = t('product.featured');
+  console.log('Featured translation:', featuredText);
+  
   // drag ფუნქციონალი გავაერთიანეთ პერფორმანსისთვის
   const dragHandlers = useMemo(() => ({
     handleMouseDown: (e: React.MouseEvent) => {
@@ -132,7 +138,9 @@ const FeaturedProductCard = memo(({
   return (
     <div className="group relative overflow-hidden rounded-lg border bg-background hover:shadow-md transition-all h-full">
       <div className="absolute top-2 left-2 z-20">
-        <Badge className="bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 text-xs text-black">გამორჩეული</Badge>
+        <Badge className="bg-amber-500 hover:bg-amber-600 px-1.5 py-0.5 text-xs text-black">
+          {locale === 'ka' ? 'გამორჩეული' : 'Featured'}
+        </Badge>
       </div>
       <Link 
         href={productUrl} 
@@ -181,7 +189,7 @@ const FeaturedProductCard = memo(({
               type="button"
             >
               <ShoppingCart className="h-3 w-3" />
-              <span className="sr-only">კალათაში დამატება</span>
+              <span className="sr-only">{t('product.addToCart')}</span>
             </Button>
             <Button 
               size="sm" 
@@ -208,6 +216,7 @@ const NewCollectionCard = memo(({ product }: { product: Product }) => {
   const [isDragging, setIsDragging] = useState(false);
   const startPos = useRef<{ x: number; y: number } | null>(null);
   const DRAG_THRESHOLD = 10;
+  const { t } = useLanguage();
 
   // drag ფუნქციონალი გავაერთიანეთ პერფორმანსისთვის
   const dragHandlers = useMemo(() => ({
@@ -315,6 +324,12 @@ const SpecialProductCard = memo(({
   product: Product; 
   onAddToCart: (product: Product) => void 
 }) => {
+  const { t, locale } = useLanguage();
+  
+  // დებაგინგისთვის, ამოიღეთ პროდაქშენში
+  const specialOfferText = t('product.specialOffer');
+  console.log('Special Offer translation:', specialOfferText);
+  
   // ოპტიმიზებული ფასდაკლების გამოთვლა
   const { 
     hasDiscount, 
@@ -350,7 +365,9 @@ const SpecialProductCard = memo(({
   return (
     <div className="relative overflow-hidden rounded-lg sm:rounded-xl group">
       <div className="absolute top-2 sm:top-3 left-2 sm:left-3 z-20">
-        <Badge className="bg-rose-500 hover:bg-rose-600 px-2 py-1 text-xs text-black">განსაკუთრებული შეთავაზება</Badge>
+        <Badge className="bg-rose-500 hover:bg-rose-600 px-2 py-1 text-xs text-black">
+          {locale === 'ka' ? 'განსაკუთრებული შეთავაზება' : 'Special Offer'}
+        </Badge>
       </div>
       <div className="grid md:grid-cols-2 gap-4 bg-gradient-to-r from-rose-50 to-rose-100 dark:from-rose-950/20 dark:to-rose-900/20 p-3 sm:p-5 rounded-lg">
         <div className="flex flex-col justify-center">
@@ -367,7 +384,7 @@ const SpecialProductCard = memo(({
                 ₾{originalPrice.toFixed(2)}
               </span>
               <Badge variant="outline" className="ml-1 text-xs text-emerald-600 border-emerald-600">
-                {percentage}% ფასდაკლება
+                {percentage}% {t('product.discount')}
               </Badge>
             </div>
           ) : (
@@ -381,7 +398,7 @@ const SpecialProductCard = memo(({
             onClick={handleAddToCart}
             type="button"
           >
-            კალათაში დამატება
+            {t('product.addToCart')}
           </Button>
         </div>
         <div className="flex items-center justify-center md:order-last order-first mb-3 md:mb-0">
@@ -430,6 +447,8 @@ interface ProductLoadingState {
 
 // მთავარი კომპონენტის ლენიანი დატვირთვისთვის - გამოიყენეთ React.lazy შემდეგში
 export default function FeaturedProducts({ fullWidth = false }: FeaturedProductsProps) {
+  const { t, locale } = useLanguage();
+
   // საწყისი მდგომარეობა ერთიან ობიექტში
   const [productState, setProductState] = useState<ProductLoadingState>({
     featured: [],
@@ -777,7 +796,9 @@ export default function FeaturedProducts({ fullWidth = false }: FeaturedProducts
         {(productState.newCollection.length > 0 || productState.isLoading) && (
           <div className={`transition-opacity duration-300 ${productState.isLoading ? 'opacity-0' : 'opacity-100'}`}> 
             <div className="w-full">
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">ახალი კოლექცია</h3>
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">
+                {locale === 'ka' ? 'ახალი კოლექცია' : 'New Collection'}
+              </h3>
               <div style={{ minHeight: productState.isLoading ? '150px' : 'auto' }}>
                 {productState.isLoading ? (
                   <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">

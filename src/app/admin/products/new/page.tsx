@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Upload, X, Zap, Save, Tag, Plus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
+import { useLanguage } from '@/components/providers/language-provider';
 
 // ქეშირებული პროდუქტის ტიპი
 interface CachedProduct {
@@ -51,6 +52,8 @@ export default function AddProductPage() {
   const [uploadingBatch, setUploadingBatch] = useState(false);
   const [currentUploadIndex, setCurrentUploadIndex] = useState(-1);
 
+  const { t } = useLanguage();
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -74,21 +77,21 @@ export default function AddProductPage() {
     const newErrors: {[key: string]: string} = {};
     
     if (!name.trim()) {
-      newErrors.name = 'პროდუქტის სახელი აუცილებელია';
+      newErrors.name = t('admin.nameRequired');
     }
     
     if (!description.trim()) {
-      newErrors.description = 'პროდუქტის აღწერა აუცილებელია';
+      newErrors.description = t('admin.descriptionRequired');
     }
     
     if (!price.trim()) {
-      newErrors.price = 'ფასი აუცილებელია';
+      newErrors.price = t('admin.priceRequired');
     } else if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
-      newErrors.price = 'ფასი უნდა იყოს დადებითი რიცხვი';
+      newErrors.price = t('admin.invalidPrice');
     }
     
     if (stock && (isNaN(parseInt(stock)) || parseInt(stock) < 0)) {
-      newErrors.stock = 'მარაგი უნდა იყოს არაუარყოფითი რიცხვი';
+      newErrors.stock = t('admin.invalidStock');
     }
     
     setErrors(newErrors);
@@ -101,14 +104,14 @@ export default function AddProductPage() {
     
     // Check if adding these files would exceed the MAX_IMAGES limit
     if (imageFiles.length + files.length > MAX_IMAGES) {
-      setUploadError(`მაქსიმუმ ${MAX_IMAGES} სურათის ატვირთვაა შესაძლებელი ერთ პროდუქტზე`);
+      setUploadError(t('admin.maxImagesExceeded'));
       return;
     }
     
     // Check individual file sizes
     const oversizedFiles = Array.from(files).filter(file => file.size > MAX_FILE_SIZE);
     if (oversizedFiles.length > 0) {
-      setUploadError(`${oversizedFiles.length} სურათის ზომა აღემატება დასაშვებს (5MB)`);
+      setUploadError(t('admin.oversizedImages'));
       return;
     }
     
@@ -161,7 +164,7 @@ export default function AddProductPage() {
       return imageUrls;
     } catch (error) {
       console.error('Error uploading images:', error);
-      const errorMessage = error instanceof Error ? error.message : 'სურათების ატვირთვა ვერ მოხერხდა';
+      const errorMessage = error instanceof Error ? error.message : t('admin.uploadingImages');
       setUploadError(errorMessage);
       throw error;
     } finally {
@@ -183,7 +186,7 @@ export default function AddProductPage() {
     
     // თუ ფორმა ცარიელია და არ გვაქვს დაქეშილი პროდუქტები, გამოვაჩინოთ შეტყობინება
     if (isFormEmpty && cachedProducts.length === 0) {
-      setUploadError("გთხოვთ შეავსოთ ფორმა ან დაამატოთ პროდუქტები შმეგის გამოყენებით");
+      setUploadError(t('admin.emptyFormError'));
       return;
     }
     
@@ -211,8 +214,8 @@ export default function AddProductPage() {
       
       // თუ შევქმენით პროდუქტი და გვაქვს დაქეშილი პროდუქტებიც, ვატვირთოთ ისინიც
       if (cachedProducts.length > 0) {
-        toast.success('პროდუქტი წარმატებით დაემატა!');
-        toast.info('ახლა დაიწყება დაქეშილი პროდუქტების ატვირთვა...');
+        toast.success(t('admin.productAdded'));
+        toast.info(t('admin.startUploadingCache'));
         
         // გავასუფთაოთ ფორმა
         setName('');
@@ -232,7 +235,7 @@ export default function AddProductPage() {
       }
     } catch (error) {
       console.error('Error creating product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'პროდუქტის შექმნა ვერ მოხერხდა';
+      const errorMessage = error instanceof Error ? error.message : t('admin.productCreateError');
       setUploadError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -270,7 +273,7 @@ export default function AddProductPage() {
       setUploadError(null);
       
       // შეტყობინება
-      toast.success('პროდუქტი დაემატა დროებით სიაში!', {
+      toast.success(t('admin.productAddedToCache'), {
         description: `${cachedProducts.length + 1} პროდუქტი დაქეშილია`
       });
       
@@ -287,13 +290,13 @@ export default function AddProductPage() {
   // წაშლის ღილაკის ჰენდლერი
   const handleRemoveCachedProduct = (id: string) => {
     setCachedProducts(prev => prev.filter(product => product.id !== id));
-    toast.info('პროდუქტი წაიშალა დროებითი სიიდან');
+    toast.info(t('admin.productRemovedFromCache'));
   };
   
   // ყველა დაქეშილი პროდუქტის ერთად ატვირთვა
   const handleBatchUpload = async () => {
     if (cachedProducts.length === 0) {
-      toast.error('დასამატებელი პროდუქტების სია ცარიელია');
+      toast.error(t('admin.cacheEmpty'));
       return;
     }
     
@@ -331,11 +334,11 @@ export default function AddProductPage() {
       
       // შეტყობინება შედეგების შესახებ
       if (successCount > 0) {
-        toast.success(`${successCount} პროდუქტი წარმატებით დაემატა!`);
+        toast.success(t('admin.productsSuccessfullyAdded'));
       }
       
       if (failCount > 0) {
-        toast.error(`${failCount} პროდუქტის დამატება ვერ მოხერხდა`);
+        toast.error(t('admin.someProductsFailedUpload'));
       }
       
       // გავასუფთაოთ ქეში
@@ -350,7 +353,7 @@ export default function AddProductPage() {
       
     } catch (error) {
       console.error('Error in batch upload:', error);
-      toast.error('პროდუქტების ატვირთვისას დაფიქსირდა შეცდომა');
+      toast.error(t('admin.uploadError'));
     } finally {
       setUploadingBatch(false);
       setCurrentUploadIndex(-1);
@@ -367,9 +370,9 @@ export default function AddProductPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">პროდუქტის დამატება</h1>
+            <h1 className="text-2xl font-bold">{t('addProductPage.title')}</h1>
             <p className="text-muted-foreground mt-1">
-              შეავსეთ ფორმა ახალი პროდუქტის დასამატებლად
+              {t('addProductPage.description')}
             </p>
           </div>
           <Button
@@ -378,7 +381,7 @@ export default function AddProductPage() {
             className="flex items-center"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            უკან დაბრუნება
+            {t('addProductPage.backButton')}
           </Button>
         </div>
 
@@ -387,7 +390,7 @@ export default function AddProductPage() {
           <div className="bg-white rounded-lg shadow p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
             {uploadError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md">
-                <p><strong>შეცდომა:</strong> {uploadError}</p>
+                <p><strong>{t('addProductPage.error')}:</strong> {uploadError}</p>
               </div>
             )}
 
@@ -395,7 +398,7 @@ export default function AddProductPage() {
             {cachedProducts.length > 0 && (
               <div className="mb-4 border rounded-md p-2 bg-amber-50">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium">დაქეშილი პროდუქტები ({cachedProducts.length})</h3>
+                  <h3 className="text-sm font-medium">{t('addProductPage.cachedProductsTitle')} ({cachedProducts.length})</h3>
                   <Button
                     type="button"
                     size="sm"
@@ -403,7 +406,7 @@ export default function AddProductPage() {
                     disabled={uploadingBatch}
                     className="bg-amber-500 hover:bg-amber-600 text-white text-xs py-1 h-7"
                   >
-                    {uploadingBatch ? 'მიმდინარეობს ატვირთვა...' : 'ყველას ატვირთვა'}
+                    {uploadingBatch ? 'მიმდინარეობს ატვირთვა...' : t('addProductPage.uploadAll')}
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -431,7 +434,7 @@ export default function AddProductPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="name">პროდუქტის სახელი</Label>
+                    <Label htmlFor="name">{t('addProductPage.nameLabel')}</Label>
                     <Input
                       id="name"
                       value={name}
@@ -445,7 +448,7 @@ export default function AddProductPage() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="price">ფასი (GEL)</Label>
+                    <Label htmlFor="price">{t('addProductPage.priceLabel')} (GEL)</Label>
                     <Input
                       id="price"
                       type="number"
@@ -462,7 +465,7 @@ export default function AddProductPage() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="stock">მარაგი</Label>
+                    <Label htmlFor="stock">{t('addProductPage.stockLabel')}</Label>
                     <Input
                       id="stock"
                       type="number"
@@ -479,7 +482,7 @@ export default function AddProductPage() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="category">კატეგორია</Label>
+                    <Label htmlFor="category">{t('addProductPage.categoryLabel')}</Label>
                     <select
                       id="category"
                       value={categoryId}
@@ -497,7 +500,7 @@ export default function AddProductPage() {
 
                   {/* Image Upload Section */}
                   <div>
-                    <Label htmlFor="images">პროდუქტის სურათები</Label>
+                    <Label htmlFor="images">{t('addProductPage.imagesLabel')}</Label>
                     <div className="mt-1">
                       <div className="flex items-center justify-center w-full border-2 border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                           onClick={() => document.getElementById('image-upload')?.click()}>
@@ -512,9 +515,9 @@ export default function AddProductPage() {
                         />
                         <div className="text-center">
                           <Upload className="h-8 w-8 mx-auto text-gray-400" />
-                          <p className="text-sm text-gray-500 mt-2">აირჩიეთ სურათები</p>
-                          <p className="text-xs text-gray-400">მაქსიმუმ {MAX_IMAGES} სურათი, თითო მაქს. 5MB</p>
-                          <p className="text-xs text-gray-400">მომხმარებელი სურათებს იხილავს ეტაპობრივად</p>
+                          <p className="text-sm text-gray-500 mt-2">{t('addProductPage.selectImages')}</p>
+                          <p className="text-xs text-gray-400">{t('addProductPage.maxImages')} {MAX_IMAGES}, {t('addProductPage.maxFileSize')} 5MB</p>
+                          <p className="text-xs text-gray-400">{t('addProductPage.userPreview')}</p>
                         </div>
                       </div>
                     </div>
@@ -538,7 +541,7 @@ export default function AddProductPage() {
                                 <p className="text-xs text-gray-700 text-center">
                                   {uploadProgress[index] > 0 && uploadProgress[index] < 100 
                                     ? `${uploadProgress[index].toFixed(0)}%` 
-                                    : uploadProgress[index] === 100 ? 'დასრულდა' : 'მზადაა'}
+                                    : uploadProgress[index] === 100 ? t('addProductPage.completed') : t('addProductPage.preparing')}
                                 </p>
                               </div>
                               
@@ -547,7 +550,7 @@ export default function AddProductPage() {
                                 type="button"
                                 onClick={() => removeImage(index)}
                                 className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-70 hover:opacity-100"
-                                aria-label={`წაშალე სურათი ${index + 1}`}
+                                aria-label={`${t('addProductPage.removeImage')} ${index + 1}`}
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -560,7 +563,7 @@ export default function AddProductPage() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="description">პროდუქტის აღწერა</Label>
+                  <Label htmlFor="description">{t('addProductPage.descriptionLabel')}</Label>
                   <Textarea
                     id="description"
                     value={description}
@@ -588,7 +591,7 @@ export default function AddProductPage() {
                   onClick={() => router.back()}
                   disabled={isSubmitting || isUploading}
                 >
-                  გაუქმება
+                  {t('addProductPage.cancel')}
                 </Button>
                 
                 {/* შმეგი ღილაკი */}
@@ -600,7 +603,7 @@ export default function AddProductPage() {
                   className="bg-amber-500 hover:bg-amber-600 text-white"
                 >
                   <Zap className="mr-2 h-4 w-4" />
-                  შემდეგი
+                  {t('addProductPage.next')}
                 </Button>
                 
                 <Button 
@@ -609,7 +612,7 @@ export default function AddProductPage() {
                   onClick={handleSubmit}
                   disabled={isSubmitting || isLoading || isUploading}
                 >
-                  {isSubmitting || isUploading ? 'მიმდინარეობს შენახვა...' : 'პროდუქტის დამატება'}
+                  {isSubmitting || isUploading ? t('addProductPage.processing') : t('addProductPage.addProduct')}
                 </Button>
               </div>
             </div>

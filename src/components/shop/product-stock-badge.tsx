@@ -3,6 +3,7 @@
 import React, { useEffect, useState, memo } from 'react';
 import { getProductStock } from '@/lib/firebase-service';
 import { Badge } from '@/components/ui/badge';
+import { useLanguage } from '@/components/providers/language-provider';
 
 interface ProductStockBadgeProps {
   productId: string;
@@ -12,6 +13,7 @@ export const ProductStockBadge = memo(function ProductStockBadge({ productId }: 
   const [stock, setStock] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     let isMounted = true;
@@ -51,13 +53,13 @@ export const ProductStockBadge = memo(function ProductStockBadge({ productId }: 
   }, [productId]);
 
   if (loading) {
-    return <Badge variant="outline" className="animate-pulse bg-slate-200 text-transparent">მარაგის შემოწმება...</Badge>;
+    return <Badge variant="outline" className="animate-pulse bg-slate-200 text-transparent">{t('stock.checking')}</Badge>;
   }
 
   if (error) {
     return (
       <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50">
-        მარაგის ინფორმაცია მიუწვდომელია
+        {t('stock.unavailable')}
       </Badge>
     );
   }
@@ -65,7 +67,7 @@ export const ProductStockBadge = memo(function ProductStockBadge({ productId }: 
   if (stock === null || stock === 0) {
     return (
       <Badge variant="destructive">
-        მარაგი ამოწურულია
+        {t('stock.outOfStock')}
       </Badge>
     );
   }
@@ -73,14 +75,14 @@ export const ProductStockBadge = memo(function ProductStockBadge({ productId }: 
   if (stock <= 5) {
     return (
       <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50">
-        დარჩენილია {stock} ცალი
+        {t('stock.limitedStock').replace('{count}', stock.toString())}
       </Badge>
     );
   }
 
   return (
     <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">
-      მარაგშია
+      {t('stock.inStock')}
     </Badge>
   );
 }); 

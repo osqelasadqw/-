@@ -1,0 +1,38 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "categories": "Categories",
+    "orders": "Orders",
+    "customers": "Customers",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "settings": {
+    "general": "General Settings",
+    "site": "Site Settings",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loadingType": "Loading Type",
+    "productsPerLoad": "Products Per Load",
+    "infinite": "Infinite Scroll",
+    "button": "Button",
+    "contactInfo": "Contact Information",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "aboutUs": "About Us",
+    "content": "Content"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add",
+    "view": "View",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "export": "Export",
+    "import": "Import"
+  }
+} 

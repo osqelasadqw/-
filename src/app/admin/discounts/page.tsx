@@ -46,7 +46,8 @@ import {
 } from '@/lib/firebase-service';
 import { Product/*, Discount*/ } from '@/types'; // Commented out problematic Discount import
 import { toast } from 'sonner';
-import { Percent, CheckCircle, AlertCircle, Trash, Tag } from 'lucide-react';
+import { Percent, CheckCircle, AlertCircle, Trash, Tag, Search, X } from 'lucide-react';
+import { useLanguage } from '@/components/providers/language-provider';
 
 export default function AdminDiscountsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -60,6 +61,7 @@ export default function AdminDiscountsPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [isSelectOpen, setIsSelectOpen] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -77,24 +79,24 @@ export default function AdminDiscountsPage() {
         setPromoCodes(promoCodesData);
       } catch (error) {
         console.error('შეცდომა მონაცემების მიღებისას:', error);
-        toast.error('შეცდომა მონაცემების მიღებისას');
+        toast.error(t('admin.dataRetrievalError'));
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchData();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, t]);
 
   const handleAddDiscount = async () => {
     if (!selectedProductId || discountPercentage <= 0 || discountPercentage > 100) {
-      toast.error('გთხოვთ შეავსოთ ყველა ველი სწორად');
+      toast.error(t('admin.fillAllFields'));
       return;
     }
     
     // თუ არ არის საჯარო ფასდაკლება, შეამოწმოს პრომოკოდი
     if (!isPublic && !promoCode.trim()) {
-      toast.error('გთხოვთ შეიყვანოთ პრომოკოდი');
+      toast.error(t('admin.enterPromocode'));
       return;
     }
     
@@ -109,8 +111,8 @@ export default function AdminDiscountsPage() {
       );
       
       toast.success(isPublic ? 
-        'ფასდაკლება წარმატებით დაემატა' : 
-        'პრომოკოდი წარმატებით დაემატა'
+        t('admin.discountAdded') : 
+        t('admin.promocodeAdded')
       );
       
       // ფორმის გასუფთავება
@@ -122,7 +124,7 @@ export default function AdminDiscountsPage() {
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('შეცდომა ფასდაკლების დამატებისას:', error);
-      toast.error('შეცდომა ფასდაკლების დამატებისას');
+      toast.error(t('admin.discountAddError'));
     } finally {
       setIsLoading(false);
     }
@@ -133,13 +135,13 @@ export default function AdminDiscountsPage() {
     
     try {
       await deactivateDiscount(discountId);
-      toast.success('ფასდაკლება წარმატებით დეაქტივირდა');
+      toast.success(t('admin.discountDeactivated'));
       
       // განახლება
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('შეცდომა ფასდაკლების დეაქტივაციისას:', error);
-      toast.error('შეცდომა ფასდაკლების დეაქტივაციისას');
+      toast.error(t('admin.discountDeactivateError'));
     } finally {
       setIsLoading(false);
     }
@@ -167,14 +169,14 @@ export default function AdminDiscountsPage() {
   return (
     <AdminLayout>
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">ფასდაკლებები და პრომოკოდები</h1>
+        <h1 className="text-2xl font-bold mb-6">{t('admin.discounts')}</h1>
         
         {/* ახალი ფასდაკლების/პრომოკოდის დამატების ფორმა */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>ახალი ფასდაკლება/პრომოკოდი</CardTitle>
+            <CardTitle>{t('admin.addNewDiscount')}</CardTitle>
             <CardDescription>
-              დაამატეთ ფასდაკლება ან პრომოკოდი პროდუქტზე
+              {t('admin.addDiscountOrPromocode')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -186,106 +188,95 @@ export default function AdminDiscountsPage() {
                   onCheckedChange={setIsPublic}
                 />
                 <Label htmlFor="discount-type" className="font-medium">
-                  {isPublic ? 'საჯარო ფასდაკლება' : 'პრომოკოდი'}
+                  {isPublic ? t('admin.publicDiscount') : t('admin.promocodes')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
                   {isPublic 
-                    ? '(ხილული ყველა მომხმარებლისთვის)' 
-                    : '(ხილული მხოლოდ კოდის ცოდნის შემთხვევაში)'}
+                    ? t('admin.visibleForAllUsers')
+                    : t('admin.hiddenPromocode')}
                 </p>
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="product">პროდუქტი</Label>
-                <Select
-                  value={selectedProductId}
-                  onValueChange={setSelectedProductId}
-                  onOpenChange={setIsSelectOpen}
-                >
-                  <SelectTrigger id="product">
-                    <SelectValue placeholder="აირჩიეთ პროდუქტი" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] p-0">
-                    <div className="px-2 py-2 sticky top-0 bg-background z-10 border-b">
-                      <Input
-                        placeholder="პროდუქტის ძებნა სახელით..."
-                        value={productSearchQuery}
-                        onChange={(e) => setProductSearchQuery(e.target.value)}
-                        className="mb-1"
-                        autoFocus={isSelectOpen}
-                        // ენტერის დაჭერაზე პირველი შედეგის არჩევა
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && filteredProducts.length > 0) {
-                            setSelectedProductId(filteredProducts[0].id);
-                            setIsSelectOpen(false);
-                          }
+                <Label htmlFor="product">{t('admin.product')}</Label>
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      placeholder={t('admin.selectProduct')}
+                      className="pl-8 pr-10"
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      onClick={() => setIsSelectOpen(true)}
+                    />
+                    {productSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductSearchQuery('');
+                          setSelectedProductId('');
                         }}
-                      />
-                    </div>
-                    <ScrollArea className="max-h-[220px] overflow-auto">
-                      {filteredProducts.length === 0 ? (
-                        <div className="text-center py-4 text-muted-foreground">
-                          პროდუქტები არ მოიძებნა
-                        </div>
-                      ) : (
-                        filteredProducts.map(product => (
-                          <SelectItem 
-                            key={product.id} 
-                            value={product.id}
-                            className="cursor-pointer hover:bg-accent focus:bg-accent"
-                          >
-                            <div className="flex items-center gap-2 py-1">
-                              {product.images && product.images[0] ? (
-                                <div className="w-8 h-8 relative rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isSelectOpen && (
+                    <Card className="absolute top-full left-0 right-0 mt-1 z-10 max-h-60 overflow-hidden shadow-lg">
+                      <ScrollArea className="h-60">
+                        <div className="p-1">
+                          {filteredProducts.length > 0 ? (
+                            filteredProducts.map((product) => (
+                              <button
+                                key={product.id}
+                                className="w-full text-left px-3 py-2 hover:bg-muted rounded-sm flex items-center gap-2"
+                                onClick={() => {
+                                  setSelectedProductId(product.id);
+                                  setProductSearchQuery(product.name);
+                                  setIsSelectOpen(false);
+                                }}
+                              >
+                                {product.images && product.images[0] && (
                                   <Image 
                                     src={product.images[0]} 
                                     alt={product.name} 
-                                    fill
-                                    className="object-cover" 
-                                    sizes="32px"
+                                    width={28} 
+                                    height={28} 
+                                    className="w-7 h-7 object-cover rounded-sm"
                                   />
-                                </div>
-                              ) : (
-                                <div className="w-8 h-8 rounded bg-gray-200 flex-shrink-0 flex items-center justify-center text-gray-500">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect width="18" height="18" x="3" y="3" rx="2" />
-                                    <circle cx="9" cy="9" r="2" />
-                                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                                  </svg>
-                                </div>
-                              )}
-                              <div className="flex flex-col">
-                                <span className="truncate max-w-[200px] text-sm font-medium">{product.name}</span>
-                                {product.price && (
-                                  <span className="text-xs text-muted-foreground">₾{product.price.toFixed(2)}</span>
                                 )}
-                              </div>
+                                <span>{product.name}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-muted-foreground text-sm">
+                              {t('admin.productsNotFound')}
                             </div>
-                          </SelectItem>
-                        ))
-                      )}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </Card>
+                  )}
+                </div>
               </div>
               
               {!isPublic && (
                 <div className="grid gap-2">
-                  <Label htmlFor="promoCode">პრომოკოდი</Label>
-                  <div className="flex items-center gap-2">
-                    <Tag className="text-muted-foreground" size={16} />
-                    <Input
-                      id="promoCode"
-                      placeholder="მაგ: SUMMER20"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
-                    />
-                  </div>
+                  <Label htmlFor="promocode">{t('admin.promocode')}</Label>
+                  <Input
+                    id="promocode"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder={t('admin.promoExample')}
+                    className="uppercase"
+                  />
                 </div>
               )}
               
               <div className="grid gap-2">
-                <Label htmlFor="discount">ფასდაკლება (%)</Label>
+                <Label htmlFor="discount">{t('admin.discountPercentage')}</Label>
                 <div className="flex items-center gap-2">
                   <Percent className="text-muted-foreground" size={16} />
                   <Input
@@ -309,7 +300,7 @@ export default function AdminDiscountsPage() {
                 discountPercentage <= 0 || 
                 discountPercentage > 100}
             >
-              {isPublic ? 'ფასდაკლების' : 'პრომოკოდის'} დამატება
+              {t('admin.addDiscount')}
             </Button>
           </CardFooter>
         </Card>
@@ -317,27 +308,27 @@ export default function AdminDiscountsPage() {
         {/* ფასდაკლებების და პრომოკოდების ცხრილები */}
         <Tabs defaultValue="discounts" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="discounts">საჯარო ფასდაკლებები</TabsTrigger>
-            <TabsTrigger value="promocodes">პრომოკოდები</TabsTrigger>
+            <TabsTrigger value="discounts">{t('admin.publicDiscounts')}</TabsTrigger>
+            <TabsTrigger value="promocodes">{t('admin.promocodes')}</TabsTrigger>
           </TabsList>
           
           {/* საჯარო ფასდაკლებების ჩანართი */}
           <TabsContent value="discounts">
             <Card>
               <CardHeader>
-                <CardTitle>საჯარო ფასდაკლებები</CardTitle>
+                <CardTitle>{t('admin.publicDiscounts')}</CardTitle>
                 <CardDescription>
-                  ყველა მომხმარებლისთვის ხილული ფასდაკლებები პროდუქტებზე
+                  {t('admin.visibleDiscountsForAllUsers')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>პროდუქტი</TableHead>
-                      <TableHead>ფასდაკლება</TableHead>
-                      <TableHead>სტატუსი</TableHead>
-                      <TableHead>მოქმედება</TableHead>
+                      <TableHead>{t('admin.product')}</TableHead>
+                      <TableHead>{t('admin.discount')}</TableHead>
+                      <TableHead>{t('admin.status')}</TableHead>
+                      <TableHead>{t('admin.action')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -358,12 +349,12 @@ export default function AdminDiscountsPage() {
                             {discount.active ? (
                               <div className="flex items-center gap-1 text-green-600">
                                 <CheckCircle size={14} />
-                                <span>აქტიური</span>
+                                <span>{t('admin.active')}</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1 text-gray-500">
                                 <AlertCircle size={14} />
-                                <span>არააქტიური</span>
+                                <span>{t('admin.inactive')}</span>
                               </div>
                             )}
                           </TableCell>
@@ -376,7 +367,7 @@ export default function AdminDiscountsPage() {
                                 disabled={isLoading}
                               >
                                 <Trash size={14} className="mr-1" />
-                                დეაქტივაცია
+                                {t('admin.deactivate')}
                               </Button>
                             )}
                           </TableCell>
@@ -385,7 +376,7 @@ export default function AdminDiscountsPage() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                          ფასდაკლებები არ არის დამატებული
+                          {t('admin.noDiscounts')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -399,20 +390,20 @@ export default function AdminDiscountsPage() {
           <TabsContent value="promocodes">
             <Card>
               <CardHeader>
-                <CardTitle>პრომოკოდები</CardTitle>
+                <CardTitle>{t('admin.promocodes')}</CardTitle>
                 <CardDescription>
-                  ფარული პრომოკოდები კონკრეტული პროდუქტებისთვის
+                  {t('admin.hiddenPromocodes')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>პროდუქტი</TableHead>
-                      <TableHead>პრომოკოდი</TableHead>
-                      <TableHead>ფასდაკლება</TableHead>
-                      <TableHead>სტატუსი</TableHead>
-                      <TableHead>მოქმედება</TableHead>
+                      <TableHead>{t('admin.product')}</TableHead>
+                      <TableHead>{t('admin.promocode')}</TableHead>
+                      <TableHead>{t('admin.discount')}</TableHead>
+                      <TableHead>{t('admin.status')}</TableHead>
+                      <TableHead>{t('admin.action')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -439,12 +430,12 @@ export default function AdminDiscountsPage() {
                             {promo.active ? (
                               <div className="flex items-center gap-1 text-green-600">
                                 <CheckCircle size={14} />
-                                <span>აქტიური</span>
+                                <span>{t('admin.active')}</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1 text-gray-500">
                                 <AlertCircle size={14} />
-                                <span>არააქტიური</span>
+                                <span>{t('admin.inactive')}</span>
                               </div>
                             )}
                           </TableCell>
@@ -457,7 +448,7 @@ export default function AdminDiscountsPage() {
                                 disabled={isLoading}
                               >
                                 <Trash size={14} className="mr-1" />
-                                დეაქტივაცია
+                                {t('admin.deactivate')}
                               </Button>
                             )}
                           </TableCell>
@@ -466,7 +457,7 @@ export default function AdminDiscountsPage() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                          პრომოკოდები არ არის დამატებული
+                          {t('admin.noPromocodes')}
                         </TableCell>
                       </TableRow>
                     )}

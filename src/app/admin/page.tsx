@@ -5,12 +5,14 @@ import { AdminLayout } from '@/components/layouts/admin-layout';
 import { getProducts, getCategories } from '@/lib/firebase-service';
 import { Package, FolderOpen, DollarSign } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/components/providers/language-provider';
 
 export default function AdminDashboard() {
   const [productCount, setProductCount] = useState(0);
   const [categoryCount, setCategoryCount] = useState(0);
   const [totalValue, setTotalValue] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -39,9 +41,9 @@ export default function AdminDashboard() {
     <AdminLayout>
       <div className="space-y-6 w-full overflow-x-hidden">
         <div className="max-w-full">
-          <h1 className="text-xl sm:text-2xl font-bold">ადმინისტრატორის პანელი</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('admin.dashboardTitle')}</h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-1">
-            მართეთ თქვენი ონლაინ მაღაზიის პროდუქტები და კატეგორიები
+            {t('admin.dashboardDescription')}
           </p>
         </div>
 
@@ -58,21 +60,21 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <StatCard 
-              title="პროდუქტები"
+              title={t('admin.products')}
               value={productCount.toString()}
               icon={<Package className="h-6 sm:h-8 w-6 sm:w-8 text-blue-500" />}
               linkHref="/admin/products"
-              linkText="პროდუქტების მართვა"
+              linkText={t('admin.manageProducts')}
             />
             <StatCard 
-              title="კატეგორიები"
+              title={t('admin.categories')}
               value={categoryCount.toString()}
               icon={<FolderOpen className="h-6 sm:h-8 w-6 sm:w-8 text-amber-500" />}
               linkHref="/admin/categories"
-              linkText="კატეგორიების მართვა"
+              linkText={t('admin.manageCategories')}
             />
             <StatCard 
-              title="მთლიანი ღირებულება"
+              title={t('admin.totalValue')}
               value={new Intl.NumberFormat('ka-GE', {
                 style: 'currency',
                 currency: 'GEL',
@@ -84,16 +86,16 @@ export default function AdminDashboard() {
         )}
 
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <h2 className="text-base sm:text-lg font-medium mb-4">სწრაფი მოქმედებები</h2>
+          <h2 className="text-base sm:text-lg font-medium mb-4">{t('admin.quickActions')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <QuickAction 
-              title="პროდუქტის დამატება"
-              description="შექმენით და დაამატეთ ახალი პროდუქტი მაღაზიაში"
+              title={t('admin.addProduct')}
+              description={t('admin.addProductDescription')}
               href="/admin/products/new"
             />
             <QuickAction 
-              title="კატეგორიის დამატება"
-              description="შექმენით ახალი კატეგორია პროდუქტების დაჯგუფებისთვის"
+              title={t('admin.addCategory')}
+              description={t('admin.addCategoryDescription')}
               href="/admin/categories/new"
             />
           </div>

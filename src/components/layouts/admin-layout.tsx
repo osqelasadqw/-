@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { signOut } from '@/lib/auth';
 import { getUserRole } from '@/lib/firebase-service';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { useLanguage } from '@/components/providers/language-provider';
+import { LanguageSwitcher } from '@/components/language-switcher';
 
 // Removing hardcoded ADMIN_EMAILS as we'll use Firestore now
 
@@ -25,6 +27,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useLanguage();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -76,17 +79,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   const navItems = [
-    { href: '/admin', label: 'მთავარი', icon: <LayoutDashboard className="h-5 w-5" /> },
-    { href: '/admin/products', label: 'პროდუქტები', icon: <Package className="h-5 w-5" /> },
-    { href: '/admin/categories', label: 'კატეგორიები', icon: <FolderOpen className="h-5 w-5" /> },
-    { href: '/admin/discounts', label: 'ფასდაკლებები და პრომოკოდები', icon: <Percent className="h-5 w-5" /> },
-    { href: '/admin/settings', label: 'პარამეტრები', icon: <Settings className="h-5 w-5" /> },
+    { href: '/admin', label: t('admin.home'), icon: <LayoutDashboard className="h-5 w-5" /> },
+    { href: '/admin/products', label: t('admin.products'), icon: <Package className="h-5 w-5" /> },
+    { href: '/admin/categories', label: t('admin.categories'), icon: <FolderOpen className="h-5 w-5" /> },
+    { href: '/admin/discounts', label: t('admin.discounts'), icon: <Percent className="h-5 w-5" /> },
+    { href: '/admin/settings', label: t('admin.settings'), icon: <Settings className="h-5 w-5" /> },
   ];
 
   const SidebarContent = () => (
     <>
       <div className="p-4 border-b">
-        <h1 className="text-lg font-bold">OnLyne ადმინ პანელი</h1>
+        <h1 className="text-lg font-bold">{t('admin.title')}</h1>
       </div>
       
       <div className="py-4">
@@ -125,18 +128,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               {user.displayName || user.email}
             </div>
           </div>
-          <button 
-            onClick={handleSignOut}
-            className="p-2 text-gray-500 hover:text-gray-700 rounded-full"
-            aria-label="გამოსვლა"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
+          <div className="flex items-center">
+            <LanguageSwitcher />
+            <button 
+              onClick={handleSignOut}
+              className="p-2 text-gray-500 hover:text-gray-700 rounded-full"
+              aria-label="გამოსვლა"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
         
         <Link href="/shop" className="mt-4 flex items-center text-sm text-gray-600 hover:text-primary">
           <ArrowLeft className="h-4 w-4 mr-1" />
-          მაღაზიაში დაბრუნება
+          {t('admin.backToShop')}
         </Link>
       </div>
     </>
@@ -151,17 +157,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Mobile Header Bar with Menu Button */}
       <div className="md:hidden fixed top-0 left-0 right-0 bg-white z-30 border-b p-4 flex items-center justify-between">
-        <h1 className="text-lg font-bold">OnLyne ადმინ პანელი</h1>
-        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="ml-auto">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
-            <SidebarContent />
-          </SheetContent>
-        </Sheet>
+        <h1 className="text-lg font-bold">{t('admin.title')}</h1>
+        <div className="flex items-center">
+          <LanguageSwitcher />
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="ml-2">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64">
+              <SidebarContent />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
 
       {/* Main content */}

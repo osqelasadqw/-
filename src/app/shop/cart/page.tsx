@@ -15,11 +15,20 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/types';
 import { formatPrice } from '@/lib/utils';
+import { useLanguage } from '@/components/providers/language-provider';
 
 interface PromoCode { id: string; code: string; discountPercentage: number; productId: string; }
 
 export default function CartPage() {
   const { items, updateQuantity, removeFromCart, totalItems, totalPrice } = useCart();
+  const { t } = useLanguage();
+  
+  // დებაგინგისთვის
+  console.log('Cart translations test:');
+  console.log('- product.featured:', t('product.featured'));
+  console.log('- product.specialOffer:', t('product.specialOffer'));
+  console.log('- cart.orderSummary:', t('cart.orderSummary'));
+  
   const [promoCode, setPromoCode] = useState('');
   const [isPromoLoading, setIsPromoLoading] = useState(false);
   const [activePromo, setActivePromo] = useState<PromoCode | null>(null);
@@ -232,14 +241,14 @@ export default function CartPage() {
       <ShopLayout>
         <div className="flex flex-col items-center justify-center py-16">
           <ShoppingBag className="h-16 w-16 text-muted-foreground mb-4" />
-          <h1 className="text-2xl font-bold mb-2">თქვენი კალათა ცარიელია</h1>
+          <h1 className="text-2xl font-bold mb-2">{t('cart.empty')}</h1>
           <p className="text-muted-foreground mb-6">
-            კალათაში არაფერი გაქვთ დამატებული
+            {t('cart.emptyDescription', 'კალათაში არაფერი გაქვთ დამატებული')}
           </p>
           <Link href="/shop">
             <Button className="flex items-center">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              მაღაზიაში დაბრუნება
+              {t('cart.continueShopping')}
             </Button>
           </Link>
         </div>
@@ -251,9 +260,9 @@ export default function CartPage() {
     <ShopLayout>
       <div className="space-y-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">კალათა</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('cart.title')}</h1>
           <p className="text-muted-foreground">
-            {totalItems} ნივთი კალათაში
+            {t('cart.itemsCount', { count: totalItems })}
           </p>
         </div>
 
@@ -264,14 +273,14 @@ export default function CartPage() {
 
           <div className="lg:col-span-1">
             <div className="rounded-md border p-6 space-y-6">
-              <h2 className="text-lg font-medium">შეკვეთის შეჯამება</h2>
+              <h2 className="text-lg font-medium">{t('cart.orderSummary')}</h2>
               
               {/* პრომოკოდის შეყვანის ფორმა */}
               <div className="space-y-3">
                 <form onSubmit={handlePromoCodeSubmit} className="flex space-x-2">
                   <div className="flex-grow relative">
                     <Input
-                      placeholder="პრომოკოდი"
+                      placeholder={t('cart.promocode')}
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value)}
                       disabled={!!activePromo || isPromoLoading}
@@ -286,14 +295,14 @@ export default function CartPage() {
                       variant="outline" 
                       onClick={clearPromoCode}
                     >
-                      გაუქმება
+                      {t('admin.cancel')}
                     </Button>
                   ) : (
                     <Button 
                       type="submit" 
                       disabled={!promoCode.trim() || isPromoLoading}
                     >
-                      {isPromoLoading ? '...' : 'გააქტიურება'}
+                      {isPromoLoading ? '...' : t('cart.applyPromocode')}
                     </Button>
                   )}
                 </form>
@@ -309,43 +318,43 @@ export default function CartPage() {
                 {activePromo && (
                   <div className="text-sm text-green-600 flex items-center">
                     <CheckCircle className="h-4 w-4 mr-1" />
-                    <span>პრომოკოდი გააქტიურებულია -{activePromo.discountPercentage}%</span>
+                    <span>{t('admin.promocodeActivated', 'პრომოკოდი გააქტიურებულია')} -{activePromo.discountPercentage}%</span>
                   </div>
                 )}
               </div>
               
               <div className="space-y-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">ჯამური თანხა</span>
+                  <span className="text-muted-foreground">{t('cart.subtotal')}</span>
                   <span>{formatCurrency(rawTotalPrice)}</span>
                 </div>
                 
                 {activePromo && (
                   <div className="flex justify-between text-sm text-primary">
-                    <span>ფასდაკლება</span>
+                    <span>{t('product.discount')}</span>
                     <span>-{formatCurrency(rawTotalPrice - finalTotal)}</span>
                   </div>
                 )}
                 
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">მიტანის საფასური</span>
-                  <span>უფასო</span>
+                  <span className="text-muted-foreground">{t('cart.shippingCost')}</span>
+                  <span>{t('cart.free')}</span>
                 </div>
                 
                 <div className="border-t pt-4 flex justify-between font-medium">
-                  <span>გადასახდელი თანხა</span>
+                  <span>{t('cart.total')}</span>
                   <span>{formatCurrency(finalTotal)}</span>
                 </div>
               </div>
               
-              <Button className="w-full" onClick={placeOrder}>შეკვეთის განთავსება</Button>
+              <Button className="w-full" onClick={placeOrder}>{t('cart.placeOrder')}</Button>
               
               <div className="text-center">
                 <Link
                   href="/shop"
                   className="text-sm text-muted-foreground hover:text-primary hover:underline"
                 >
-                  მაღაზიაში დაბრუნება
+                  {t('cart.continueShopping')}
                 </Link>
               </div>
             </div>

@@ -16,6 +16,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Input } from '@/components/ui/input';
 import SearchResults from '@/components/shop/search-results';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/components/providers/language-provider';
+import { LanguageSwitcher } from '@/components/language-switcher';
 
 interface ShopLayoutProps {
   children: React.ReactNode;
@@ -70,6 +72,7 @@ const SearchSection = memo(({
   handleSearchSubmit: (e: React.FormEvent) => void; 
 }) => {
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   // ჩატვირთვისას დავაყენოთ searchTerm URL-დან
   useEffect(() => {
@@ -105,7 +108,7 @@ const SearchSection = memo(({
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="პროდუქტის ძიება..."
+            placeholder={t('search.placeholder')}
             className="pl-9 w-full"
             value={searchTerm}
             onChange={handleSearchInputChange}
@@ -137,6 +140,7 @@ const MobileSearchSection = memo(({
   setShowSearchResults: (show: boolean) => void; 
 }) => {
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   // ჩატვირთვისას დავაყენოთ searchTerm URL-დან
   useEffect(() => {
@@ -150,7 +154,7 @@ const MobileSearchSection = memo(({
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="პროდუქტის ძიება..."
+            placeholder={t('search.placeholder')}
             className="pl-9 w-full py-1.5 text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -171,37 +175,35 @@ MobileSearchSection.displayName = 'MobileSearchSection';
 
 // ფუტერის კომპონენტი - მემოიზებული წარმადობისთვის
 const FooterSection = memo(({ settings }: { settings: any }) => {
+  const { t } = useLanguage();
   const year = new Date().getFullYear();
   
   const footerNavItems = [
-    { href: '/shop', label: 'მთავარი' },
-    { href: '/shop', label: 'კატეგორიები' },
-    { href: '/shop/about', label: 'ჩვენს შესახებ' },
-    { href: '/shop/promo-checker', label: 'პრომოკოდები' },
+    { href: '/shop', label: t('footer.home') },
+    { href: '/shop', label: t('footer.categories') },
+    { href: '/shop/about', label: t('footer.about') },
+    { href: '/shop/promo-checker', label: t('footer.promocodes') },
   ];
   
   return (
-    <footer className="bg-gray-800 text-gray-300 pt-12 pb-8 mt-16">
+    <footer className="bg-gray-800 text-gray-100 pt-12 pb-8 mt-16">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* ჩვენს შესახებ */}
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">OnLyne Store</h3>
-            <p className="text-sm text-gray-400 line-clamp-4">
+            <p className="text-sm text-gray-200 line-clamp-4">
               {settings?.aboutUsContent || 'ჩვენ გთავაზობთ საუკეთესო ხარისხის პროდუქციას ხელმისაწვდომ ფასად. აღმოაჩინეთ მრავალფეროვანი არჩევანი ჩვენს ონლაინ მაღაზიაში.'}
             </p>
           </div>
           
           {/* სწრაფი ბმულები */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">სწრაფი ბმულები</h3>
-            <ul className="space-y-2">
+            <h3 className="text-lg font-semibold text-white mb-4">{t('footer.quickLinks')}</h3>
+            <ul className="text-sm space-y-2">
               {footerNavItems.map((item, index) => (
-                <li key={`${item.href}-${index}`}>
-                  <Link 
-                    href={item.href} 
-                    className="text-sm hover:text-white transition-colors"
-                  >
+                <li key={index}>
+                  <Link href={item.href} className="text-gray-200 hover:text-white transition-colors">
                     {item.label}
                   </Link>
                 </li>
@@ -209,71 +211,47 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
             </ul>
           </div>
           
-          {/* კონტაქტის ინფორმაცია */}
-          {(settings?.address || settings?.email || settings?.phone) && (
+          {/* საკონტაქტო ინფორმაცია */}
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">კონტაქტი</h3>
-              <ul className="space-y-2">
-                {settings?.address && (
-                  <li className="flex items-start text-sm">
-                    <MapPinIcon className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-primary" />
-                    <span>{settings.address}</span>
-                  </li>
-                )}
-                {settings?.email && (
-                  <li className="flex items-center text-sm">
-                    <MailIcon className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
-                    <a href={`mailto:${settings.email}`} className="hover:text-white transition-colors">{settings.email}</a>
-                  </li>
-                )}
-                {settings?.phone && (
-                  <li className="flex items-center text-sm">
-                    <PhoneIcon className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
-                    <a href={`tel:${settings.phone.replace(/\s/g, '')}`} className="hover:text-white transition-colors">{settings.phone}</a>
-                  </li>
-                )}
-              </ul>
-            </div>
-          )}
-        </div>
-        
-        {/* ფუტერის ბარი */}
-        <div className="mt-12 pt-8 border-t border-gray-700">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-gray-400 text-sm mb-4 md:mb-0">
-              &copy; {year} OnLyne Store. ყველა უფლება დაცულია.
-            </div>
-            <div className="flex space-x-4">
-              {/* ოპტიმიზებული სურათები */}
-              <div className="w-8 h-8">
-                <OptimizedImage 
-                  src="https://cdn-icons-png.flaticon.com/128/196/196578.png" 
-                  alt="Visa" 
-                  width={32} 
-                  height={32} 
-                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all w-8 h-8" 
-                />
+            <h3 className="text-lg font-semibold text-white mb-4">{t('footer.subscribe')}</h3>
+            <p className="text-sm text-gray-200 mb-4">
+              {t('footer.subscribeDescription')}
+            </p>
+            
+            {settings?.address && (
+              <div className="mt-4 flex items-start space-x-2">
+                <MapPinIcon className="h-4 w-4 text-gray-200 mt-0.5" />
+                <span className="text-sm text-gray-200">{settings.address}</span>
               </div>
-              <div className="w-8 h-8">
-                <OptimizedImage 
-                  src="https://cdn-icons-png.flaticon.com/128/196/196561.png" 
-                  alt="MasterCard" 
-                  width={32} 
-                  height={32} 
-                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all w-8 h-8" 
-                />
+            )}
+            
+            {settings?.email && (
+              <div className="mt-2 flex items-start space-x-2">
+                <MailIcon className="h-4 w-4 text-gray-200 mt-0.5" />
+                <a 
+                  href={`mailto:${settings.email}`} 
+                  className="text-sm text-gray-200 hover:text-white transition-colors"
+                >
+                  {settings.email}
+                </a>
               </div>
-              <div className="w-8 h-8">
-                <OptimizedImage 
-                  src="https://cdn-icons-png.flaticon.com/128/5968/5968299.png" 
-                  alt="PayPal" 
-                  width={32} 
-                  height={32} 
-                  className="grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all w-8 h-8" 
-                />
-              </div>
+            )}
+            
+            {settings?.phone && (
+              <div className="mt-2 flex items-start space-x-2">
+                <PhoneIcon className="h-4 w-4 text-gray-200 mt-0.5" />
+                <a 
+                  href={`tel:${settings.phone}`} 
+                  className="text-sm text-gray-200 hover:text-white transition-colors"
+                >
+                  {settings.phone}
+                </a>
             </div>
+            )}
           </div>
+        </div>
+        <div className="pt-6 border-t border-gray-700 text-center text-xs text-gray-300">
+          <p>© {year} OnLyne Store. {t('footer.rights')}</p>
         </div>
       </div>
     </footer>
@@ -289,6 +267,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { totalItems } = useCart();
+  const { t } = useLanguage();
   const [user, setUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -297,15 +276,12 @@ export function ShopLayout({ children }: ShopLayoutProps) {
   const [settings, setSettings] = useState<SiteSettings>({});
   
   const headerRef = useRef<HTMLElement>(null);
-  
-  const emailInputId = React.useId();
-  const subscribeButtonId = React.useId();
 
   const navItems = [
-    { href: '/shop', label: 'მთავარი' },
-    { href: '/shop', label: 'კატეგორიები' },
-    { href: '/shop/about', label: 'ჩვენს შესახებ' },
-    { href: '/shop/promo-checker', label: 'პრომოკოდები' },
+    { href: '/shop', label: t('header.home') },
+    { href: '/shop', label: t('header.categories') },
+    { href: '/shop/about', label: t('header.about') },
+    { href: '/shop/promo-checker', label: t('header.promocodes') },
   ];
 
   useEffect(() => {
@@ -434,72 +410,53 @@ export function ShopLayout({ children }: ShopLayoutProps) {
                 </Suspense>
               </div>
               
-              <div className="flex items-center space-x-4">
-                {/* Mobile menu button (visible below md) */}
+              {/* User Interface */}
+              <div className="flex items-center gap-3">
+                {/* Language Switcher */}
+                <LanguageSwitcher />
+                
+                {/* Menu Toggle for mobile */}
                 <button
-                  type="button"
-                  className="md:hidden flex items-center gap-1 px-3 py-1.5 rounded-md text-gray-700 hover:bg-gray-100 border border-gray-300"
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  aria-label={isMenuOpen ? "დახურე მენიუ" : "გახსენი კატეგორიების მენიუ"}
-                  aria-expanded={isMenuOpen}
+                  className="md:hidden p-2 hover:bg-gray-100 rounded-full"
+                  aria-label={isMenuOpen ? "დახურვა" : "მენიუს გახსნა"}
                 >
-                  {isMenuOpen ? (
-                    <X className="h-4 w-4" />
-                  ) : (
-                    <>
-                      <Menu className="h-4 w-4" />
-                      <span className="text-xs font-medium hidden xs:inline">კატეგორიები</span>
-                    </>
-                  )}
+                  {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
                 </button>
                 
+                {/* User Menu - visible all sizes */}
                 {!loadingAuth && (
                   <>
                     {user ? (
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          {user.photoURL && (
-                            <div className="w-8 h-8 rounded-full overflow-hidden hidden md:block">
-                              <OptimizedImage 
-                                src={user.photoURL} 
-                                alt="User profile" 
-                                width={32}
-                                height={32}
-                                className="rounded-full"
-                              />
-                            </div>
-                          )}
-                          <span className="text-sm font-medium hidden md:inline-block">
-                            {user.displayName}
-                          </span>
-                        </div>
-                        
+                      <div className="flex items-center space-x-3">
                         {isAdmin && (
                           <Link 
-                            href="/admin"
-                            className="p-2 hover:bg-gray-100 rounded-full"
-                            aria-label="Admin panel"
+                            href="/admin" 
+                            className="hidden md:flex items-center space-x-1 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors"
+                            aria-label={t('header.dashboard')}
                           >
-                            <LayoutDashboard size={20} />
+                            <LayoutDashboard size={18} />
+                            <span>{t('header.dashboard')}</span>
                           </Link>
                         )}
                         
                         <button 
                           onClick={handleSignOut}
-                          className="p-2 hover:bg-gray-100 rounded-full"
-                          aria-label="გამოსვლა"
+                          className="flex items-center space-x-1 p-2 hover:bg-gray-100 rounded-full"
+                          aria-label={t('header.logout')}
                         >
-                          <LogOut size={20} />
+                          <LogOut size={18} />
+                          <span className="hidden md:inline">{t('header.logout')}</span>
                         </button>
                       </div>
                     ) : (
                       <button 
                         onClick={handleSignIn}
                         className="flex items-center space-x-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                        aria-label="Google-ით ავტორიზაცია"
+                        aria-label={t('header.signin')}
                       >
                         <User size={18} />
-                        <span className="hidden md:inline">Google-ით ავტორიზაცია</span>
+                        <span className="hidden md:inline">{t('header.signin')}</span>
                       </button>
                     )}
                   </>
@@ -508,7 +465,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
                 <Link 
                   href="/shop/cart" 
                   className="relative p-2 hover:bg-gray-100 rounded-full"
-                  aria-label="კალათა"
+                  aria-label={t('header.cart')}
                 >
                   <ShoppingBag size={22} />
                   {totalItems > 0 && (

@@ -22,6 +22,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from '@/components/providers/language-provider';
 
 // ლამაზი სქროლბარის კლასი
 const customScrollbarStyles = `
@@ -87,6 +88,7 @@ type DragItemType = {
 
 // Draggable component
 const DraggableImage = ({ image, productId }: { image: string; productId: string }) => {
+  const { t } = useLanguage();
   const id = React.useId();
   const dragItemData = { id, type: 'image', image, productId };
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -128,7 +130,7 @@ const DraggableImage = ({ image, productId }: { image: string; productId: string
       <div className="relative w-full h-full">
         <Image
           src={image}
-          alt="პროდუქტის ფოტო"
+          alt={t('admin.productImage')}
           fill
           className="object-contain"
           onError={() => setImageError(true)}
@@ -143,6 +145,7 @@ const CategoryDropZone = ({ category, pendingImages }: {
   category: Category, 
   pendingImages: {id: string, image: string}[]
 }) => {
+  const { t } = useLanguage();
   const { setNodeRef, isOver } = useDroppable({
     id: category.id,
   });
@@ -165,14 +168,14 @@ const CategoryDropZone = ({ category, pendingImages }: {
       <div className="flex justify-between items-center mb-1">
         <h3 className="font-medium text-sm truncate flex-1" title={category.name}>{category.name}</h3>
         <span className="text-xs text-muted-foreground bg-gray-100 rounded-full px-2 py-0.5">
-          {pendingImages.length} ფოტო
+          {pendingImages.length} {t('admin.photos')}
         </span>
       </div>
       
       <div className="flex-1 overflow-hidden flex flex-col">
         {pendingImages.length === 0 ? (
           <div className="text-xs text-muted-foreground h-full flex items-center justify-center">
-            გადმოიტანეთ ფოტოები აქ კატეგორიაში დასამატებლად
+            {t('admin.dragImagesToAdd')}
           </div>
         ) : (
           <div className="mt-1 flex-1 overflow-y-auto custom-scrollbar hover-show">
@@ -195,7 +198,7 @@ const CategoryDropZone = ({ category, pendingImages }: {
       
       {isOver && (
         <div className="mt-1 text-xs text-primary animate-pulse">
-          აქ გადმოაგდეთ
+          {t('admin.dropHere')}
         </div>
       )}
     </div>
@@ -203,7 +206,8 @@ const CategoryDropZone = ({ category, pendingImages }: {
 };
 
 // ვქმნით ახალ კომპონენტს კატეგორიის გარეშე ფოტოებისთვის
-const UncategorizedDropZone = (/*{ pendingImages }: { pendingImages: {id: string, image: string, productId: string}[] }*/) => { // commented out pendingImages
+const UncategorizedDropZone = () => {
+  const { t } = useLanguage();
   const { setNodeRef, isOver } = useDroppable({
     id: "uncategorized"
   });
@@ -224,20 +228,20 @@ const UncategorizedDropZone = (/*{ pendingImages }: { pendingImages: {id: string
       }}
     >
       <div className="flex justify-between items-center mb-1">
-        <h3 className="font-medium text-sm">კატეგორიის გარეშე</h3>
+        <h3 className="font-medium text-sm">{t('admin.uncategorized')}</h3>
         <span className="text-xs text-muted-foreground bg-gray-100 rounded-full px-2 py-0.5">
-          დროპ ზონა
+          {t('admin.dropZone')}
         </span>
       </div>
       
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="text-xs text-muted-foreground flex-1 flex items-center justify-center">
-          გადმოიტანეთ ფოტოები აქ კატეგორიიდან გამოსატანად
+          {t('admin.dragImagesToRemove')}
         </div>
         
         {isOver && (
           <div className="mt-1 text-xs text-primary animate-pulse">
-            აქ გადმოაგდეთ კატეგორიიდან გამოსატანად
+            {t('admin.dropHereToRemove')}
           </div>
         )}
       </div>
@@ -256,37 +260,20 @@ const ScrollToTopButton = () => {
     });
   };
 
-  useEffect(() => {
-    const toggleVisibility = () => {
-      setIsVisible(window.pageYOffset > 300);
-    };
-
-    window.addEventListener('scroll', toggleVisibility);
-    return () => window.removeEventListener('scroll', toggleVisibility);
-  }, []);
-
-  return isVisible ? (
-    <button
-      onClick={scrollToTop}
-      className="fixed bottom-4 right-4 z-50 p-2 bg-primary text-white rounded-full shadow-lg"
-      aria-label="მაღლა დაბრუნება"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="m18 15-6-6-6 6"/>
-      </svg>
-    </button>
-  ) : null;
+  return null; // ამ ფუნქციონალს ახლა არ ვიყენებთ
 };
 
 export default function AdminCategories() {
+  const { t } = useLanguage();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDistributionModalOpen, setIsDistributionModalOpen] = useState(false);
   const [allImages, setAllImages] = useState<{id: string, image: string, productId: string}[]>([]);
   const [updateMessage, setUpdateMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -445,7 +432,7 @@ export default function AdminCategories() {
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      setIsLoading(true);
+      setLoading(true);
       try {
         await fetchCategories(); // ჯერ კატეგორიები
         await fetchProducts(); // შემდეგ პროდუქტები
@@ -453,7 +440,7 @@ export default function AdminCategories() {
         // console.error('Error fetching initial data:', error);
         setUpdateMessage({ type: 'error', text: 'მონაცემების ჩატვირთვისას მოხდა შეცდომა.' });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     fetchInitialData();
@@ -470,13 +457,13 @@ export default function AdminCategories() {
 
   const fetchCategories = async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const categoriesData = await getCategories();
       setCategories(categoriesData);
     } catch (error) {
       console.error('Error fetching categories:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -585,7 +572,7 @@ export default function AdminCategories() {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (window.confirm('ნამდვილად გსურთ კატეგორიის წაშლა? ამ კატეგორიასთან დაკავშირებული პროდუქტები დარჩება, მაგრამ კატეგორიის გარეშე.')) {
+    if (window.confirm(t('admin.deleteCategoryConfirmation'))) {
       try {
         setIsSubmitting(true);
         await deleteCategory(id);
@@ -711,7 +698,7 @@ export default function AdminCategories() {
       console.error('Error handling image drop:', error);
       setUpdateMessage({
         type: 'error',
-        text: 'შეცდომა ფოტოს გადატანისას'
+        text: t('admin.imageTransferError')
       });
       
       setTimeout(() => {
@@ -761,14 +748,14 @@ export default function AdminCategories() {
       
       setUpdateMessage({
         type: 'success',
-        text: 'ყველა ცვლილება შენახულია!'
+        text: t('admin.changesSaved')
       });
       
     } catch (error) {
       console.error('Error saving changes:', error);
       setUpdateMessage({
         type: 'error',
-        text: 'შეცდომა ცვლილებების შენახვისას'
+        text: t('admin.saveError')
       });
     } finally {
       setIsSaving(false);
@@ -869,9 +856,9 @@ export default function AdminCategories() {
                   className="mr-2"
                 >
                   <X className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">უკან დაბრუნება</span>
+                  <span className="hidden sm:inline">{t('admin.goBack')}</span>
                 </Button>
-                <h2 className="text-base sm:text-xl font-bold truncate">ფოტოების გადანაწილება</h2>
+                <h2 className="text-base sm:text-xl font-bold truncate">{t('admin.redistributeImages')}</h2>
               </div>
               
               <Button 
@@ -883,14 +870,14 @@ export default function AdminCategories() {
                 {isSaving ? (
                   <>
                     <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                    <span className="hidden sm:inline">მიმდინარეობს შენახვა...</span>
-                    <span className="sm:hidden">შენახვა...</span>
+                    <span className="hidden sm:inline">{t('admin.saving')}</span>
+                    <span className="sm:hidden">{t('admin.saving')}</span>
                   </>
                 ) : (
                   <>
                     <Save className="mr-1 sm:mr-2 h-4 w-4" />
-                    <span className="hidden sm:inline">ცვლილებების შენახვა</span>
-                    <span className="sm:hidden">შენახვა</span>
+                    <span className="hidden sm:inline">{t('admin.changesSaved')}</span>
+                    <span className="sm:hidden">{t('admin.save')}</span>
                     {hasPendingChanges && (
                       <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 bg-white text-green-700 rounded-full text-xs sm:text-sm font-bold">
                         {pendingChanges.length}
@@ -916,10 +903,10 @@ export default function AdminCategories() {
                 <div className="flex flex-col gap-2 mb-3 bg-white p-3 rounded-lg shadow-sm">
                   <div className="flex items-center gap-2">
                     <ImageIcon className="h-5 w-5 text-primary" />
-                    <h3 className="font-medium">კატეგორიის გარეშე ფოტოები</h3>
+                    <h3 className="font-medium">{t('admin.uncategorizedPhotos')}</h3>
                     {filteredAllImages.length > 0 && (
                       <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-                        {filteredAllImages.length} ფოტო
+                        {filteredAllImages.length} {t('admin.photos')}
                       </span>
                     )}
                   </div>
@@ -929,7 +916,7 @@ export default function AdminCategories() {
                     <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       className="pl-8 pr-3 py-1 w-full text-sm"
-                      placeholder="მოძებნეთ ფოტოები..."
+                      placeholder={t('admin.searchPhotos')}
                       value={imageSearchTerm}
                       onChange={(e) => setImageSearchTerm(e.target.value)}
                     />
@@ -953,7 +940,7 @@ export default function AdminCategories() {
                       className="h-3 w-3 rounded text-primary focus:ring-primary"
                     />
                     <label htmlFor="discount-filter-mobile" className="ml-2 text-xs font-medium text-gray-700">
-                      მხოლოდ ფასდაკლებული პროდუქტები
+                      {t('admin.discountedOnly')}
                     </label>
                   </div>
                 </div>
@@ -970,7 +957,7 @@ export default function AdminCategories() {
                   <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
                     {filteredAllImages.length === 0 ? (
                       <div className="col-span-full py-4 text-center text-muted-foreground text-xs md:text-sm">
-                        {imageSearchTerm ? 'ფოტოები ვერ მოიძებნა' : 'კატეგორიის გარეშე ფოტოები არ მოიძებნა'}
+                        {imageSearchTerm ? t('admin.noPhotosFound') : t('admin.noUncategorizedPhotos')}
                       </div>
                     ) : (
                       filteredAllImages.map((imageData, index) => (
@@ -990,10 +977,10 @@ export default function AdminCategories() {
                 <div className="flex flex-col gap-2 mb-3 bg-white p-3 rounded-lg shadow-sm">
                   <div className="flex items-center gap-2">
                     <Grid className="h-5 w-5 text-primary" />
-                    <h3 className="font-medium">კატეგორიები</h3>
+                    <h3 className="font-medium">{t('admin.categories')}</h3>
                     {hasPendingChanges && (
                       <span className="ml-auto text-xs md:text-sm bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">
-                        {pendingChanges.length} შეუნახავი ცვლილება
+                        {pendingChanges.length} {t('admin.pendingChanges')}
                       </span>
                     )}
                   </div>
@@ -1005,7 +992,7 @@ export default function AdminCategories() {
                       <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         className="pl-8 pr-3 py-1 w-full text-sm"
-                        placeholder="პირველი კატეგორია..."
+                        placeholder={t('admin.firstCategory')}
                         value={categorySearchTerm}
                         onChange={(e) => setCategorySearchTerm(e.target.value)}
                       />
@@ -1024,7 +1011,7 @@ export default function AdminCategories() {
                       <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         className="pl-8 pr-3 py-1 w-full text-sm"
-                        placeholder="მეორე კატეგორია..."
+                        placeholder={t('admin.secondCategory')}
                         value={secondCategorySearchTerm}
                         onChange={(e) => setSecondCategorySearchTerm(e.target.value)}
                       />
@@ -1041,7 +1028,7 @@ export default function AdminCategories() {
                   
                   {/* მოკლე განმარტება */}
                   <div className="text-xs text-muted-foreground mt-1">
-                    ეძებეთ სხვადასხვა კატეგორიები ორივე ველში ერთდროულად ფოტოების გადასანაწილებლად
+                    {t('admin.searchBothCategories')}
                   </div>
                 </div>
                 
@@ -1118,9 +1105,9 @@ export default function AdminCategories() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold">კატეგორიების მართვა</h1>
+              <h1 className="text-2xl font-bold">{t('admin.categoriesManagement')}</h1>
               <p className="text-muted-foreground mt-1">
-                ორგანიზება გაუკეთეთ თქვენს პროდუქტებს კატეგორიების დამატებით
+                {t('admin.organizeProducts')}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
@@ -1130,14 +1117,14 @@ export default function AdminCategories() {
                 className="bg-primary/10 border-primary text-primary hover:bg-primary/20"
               >
                 <ArrowLeftRight className="mr-2 h-4 w-4" />
-                ფოტოების გადანაწილება
+                {t('admin.redistributeImages')}
               </Button>
               <Button
                 onClick={() => setIsAdding(true)}
                 disabled={isAdding}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                კატეგორიის დამატება
+                {t('admin.addCategory')}
               </Button>
             </div>
           </div>
@@ -1178,7 +1165,7 @@ export default function AdminCategories() {
               </div>
             )}
 
-            {isLoading ? (
+            {loading ? (
               <div className="p-6 text-center">
                 <div className="inline-block animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
                 <p className="mt-2 text-muted-foreground">მიმდინარეობს ჩატვირთვა...</p>

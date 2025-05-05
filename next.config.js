@@ -9,8 +9,21 @@ const withPWA = require('next-pwa')({
   register: true
 });
 
+// next-intl-ის კონფიგურაცია გამორთულია დროებით
+// შემდგომში შეგვიძლია დავამატოთ მრავალენოვანი მხარდაჭერა 
+
 const nextConfig = {
   reactStrictMode: true,
+  // გავაუმჯობესოთ ჩატვირთვის სიჩქარე
+  swcMinify: true,
+  compiler: {
+    emotion: true,
+    // წავშალოთ კონსოლები პროდაქშენში
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
+  // გაუმჯობესებული გამოსახულებების ოპტიმიზაცია
   images: {
     remotePatterns: [
       {
@@ -32,7 +45,11 @@ const nextConfig = {
     ],
     // ფოტოების ოპტიმიზაციის გაუმჯობესება
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 86400, // 24 საათი (წამებში)
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     domains: ['firebasestorage.googleapis.com', 'placehold.co']
   },
   // ჰიდრაციის გაფრთხილებების გამოსწორება
@@ -46,13 +63,10 @@ const nextConfig = {
       '@emotion/react',
       '@emotion/styled',
     ],
-  },
-  // ემოციების CSS ოპტიმიზაცია
-  compiler: {
-    emotion: true,
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
+    // გავაუმჯობესოთ ჩატვირთვა
+    optimizeCss: true,
+    swcFileReading: true,
+    webVitalsAttribution: ['CLS', 'LCP'],
   },
   // Vercel-ზე აპლიკაციის ოპტიმიზაცია
   poweredByHeader: false,
@@ -65,6 +79,14 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true, // დროებით გამორთულია ESLint შემოწმება
   },
+  // გავაუმჯობესოთ ინიციალიზაცია
+  onDemandEntries: {
+    // 25 წამი პერიოდი, როდესაც გვერდები რჩება მეხსიერებაში
+    maxInactiveAge: 25 * 1000,
+    // 10 გვერდი დროის ერთეულში
+    pagesBufferLength: 10,
+  },
 };
 
+// დროებით გაუქმებულია next-intl-ის კონფიგურაცია
 module.exports = withPWA(withBundleAnalyzer(nextConfig)); 

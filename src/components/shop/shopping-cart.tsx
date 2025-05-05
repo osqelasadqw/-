@@ -11,9 +11,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { useLanguage } from '@/components/providers/language-provider';
 
 export function ShoppingCart() {
   const { items, removeFromCart, updateQuantity, totalItems, totalPrice } = useCart();
+  const { t } = useLanguage();
 
   return (
     <Sheet>
@@ -29,14 +31,14 @@ export function ShoppingCart() {
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col">
         <SheetHeader>
-          <SheetTitle>Shopping Cart</SheetTitle>
+          <SheetTitle>{t('cart.title')}</SheetTitle>
         </SheetHeader>
         
         {items.length === 0 ? (
           <div className="flex-grow flex flex-col items-center justify-center py-10 text-center">
             <ShoppingBag className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Your cart is empty</h3>
-            <p className="text-muted-foreground mb-6">Start shopping to add items to your cart</p>
+            <h3 className="text-lg font-medium mb-2">{t('cart.empty')}</h3>
+            <p className="text-muted-foreground mb-6">{t('cart.emptyDescription')}</p>
           </div>
         ) : (
           <>
@@ -111,11 +113,11 @@ export function ShoppingCart() {
             
             <div className="border-t pt-4">
               <div className="flex justify-between mb-2">
-                <span>Subtotal</span>
+                <span>{t('cart.subtotal')}</span>
                 <span className="font-medium">₾{totalPrice.toFixed(2)}</span>
               </div>
               <Button className="w-full">
-                Checkout
+                {t('cart.checkout')}
               </Button>
             </div>
           </>

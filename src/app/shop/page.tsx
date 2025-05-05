@@ -44,6 +44,7 @@ import 'swiper/css/autoplay';
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import FeaturedProducts from '@/components/shop/featured-products';
+import { useLanguage } from '@/components/providers/language-provider';
 
 type SortOption = 'newest' | 'oldest' | 'price-asc' | 'price-desc';
 
@@ -169,6 +170,7 @@ export default function ShopPage() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [activeCategoryName, setActiveCategoryName] = useState<string | null>(null);
   const router = useRouter();
+  const { t } = useLanguage();
   
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
   const [minMaxPrice, setMinMaxPrice] = useState<[number, number]>([0, 1000]);
@@ -559,7 +561,7 @@ export default function ShopPage() {
     
     return (
       <div className="space-y-2">
-        <h2 className="text-xs font-medium">ფასი</h2>
+        <h2 className="text-xs font-medium">{t('product.price')}</h2>
         <div className="flex items-center justify-between gap-2">
           <input
             id={`min-price-${idPrefix}`}
@@ -567,8 +569,8 @@ export default function ShopPage() {
             type="number"
             className="border rounded-md px-2 py-1 w-20 text-center text-sm"
             defaultValue={temporaryPriceRange[0]}
-            placeholder="მინ"
-            aria-label="მინიმალური ფასი"
+            placeholder={t('product.min')}
+            aria-label={t('product.min')}
           />
           <div className="flex items-center justify-center">
             <span className="text-gray-400 text-sm">-</span>
@@ -579,8 +581,8 @@ export default function ShopPage() {
             type="number"
             className="border rounded-md px-2 py-1 w-20 text-center text-sm"
             defaultValue={temporaryPriceRange[1]}
-            placeholder="მაქს"
-            aria-label="მაქსიმალური ფასი"
+            placeholder={t('product.max')}
+            aria-label={t('product.max')}
           />
         </div>
       </div>
@@ -594,7 +596,7 @@ export default function ShopPage() {
   const SortSelector = memo(function SortSelector() {
     return (
       <div className="space-y-2">
-        <h2 className="text-xs font-medium">დახარისხება</h2>
+        <h2 className="text-xs font-medium">{t('product.sort')}</h2>
         
         <div className="flex items-center gap-2">
           <div className="flex-1">
@@ -602,14 +604,14 @@ export default function ShopPage() {
               value={tempSortOption}
               onValueChange={(value) => setTempSortOption(value as SortOption)}
             >
-              <SelectTrigger aria-label="დახარისხების პარამეტრები" className="text-xs py-1 h-8">
-                <SelectValue placeholder="აირჩიეთ" />
+              <SelectTrigger aria-label={t('product.sortParameters')} className="text-xs py-1 h-8">
+                <SelectValue placeholder={t('product.selectOption')} />
               </SelectTrigger>
               <SelectContent className="text-sm">
-                <SelectItem value="newest">უახლესი</SelectItem>
-                <SelectItem value="oldest">უძველესი</SelectItem>
-                <SelectItem value="price-asc">ფასი: დაბლიდან მაღლა</SelectItem>
-                <SelectItem value="price-desc">ფასი: მაღლიდან დაბლა</SelectItem>
+                <SelectItem value="newest">{t('product.sortOptions.newest')}</SelectItem>
+                <SelectItem value="oldest">{t('product.sortOptions.oldest')}</SelectItem>
+                <SelectItem value="price-asc">{t('product.sortOptions.priceAsc')}</SelectItem>
+                <SelectItem value="price-desc">{t('product.sortOptions.priceDesc')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -624,7 +626,7 @@ export default function ShopPage() {
               htmlFor="show-discounted-desktop" 
               className="text-xs whitespace-normal break-words max-w-[80px]"
             >
-              ფასდაკლებული
+              {t('product.discount')}
             </Label>
           </div>
         </div>
@@ -646,7 +648,7 @@ export default function ShopPage() {
           htmlFor="show-discounted-mobile"
           className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 whitespace-normal break-words max-w-[150px]"
         >
-          მხოლოდ ფასდაკლებული
+          {t('product.discount')}
         </Label>
       </div>
     );
@@ -724,13 +726,13 @@ export default function ShopPage() {
 
   return (
     <ShopLayout>
-      <Suspense fallback={<div>Loading search parameters...</div>}>
+      <Suspense fallback={<div>{t('product.loading')}</div>}>
         <MemoizedSearchParamsSection setSearchTerm={setTempSearchTerm} setCategoryId={setCategoryId} />
       </Suspense>
       
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight mb-2">
-          {activeCategoryName ? `კატეგორია: ${activeCategoryName}` : "ყველა პროდუქტი"}
+          {activeCategoryName ? `${t('product.category')}: ${activeCategoryName}` : t('product.allProducts')}
         </h1>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <p className="text-muted-foreground">
@@ -748,7 +750,7 @@ export default function ShopPage() {
                 }}
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                ყველა პროდუქტის ჩვენება
+                {t('product.showAllProducts')}
               </Button>
             )}
           </p>
@@ -761,26 +763,26 @@ export default function ShopPage() {
                   className="md:hidden flex items-center gap-1 text-xs"
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span>ფილტრი</span>
+                  <span>{t('product.filter')}</span>
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[85vw] max-w-sm">
                 <SheetHeader>
                   <div className="flex items-center justify-between">
-                    <SheetTitle>ფილტრი</SheetTitle>
+                    <SheetTitle>{t('product.filter')}</SheetTitle>
                     <SheetClose asChild>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="h-6 w-6 p-0"
-                        aria-label="ფილტრის დახურვა"
+                        aria-label={t('product.closeFilter')}
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     </SheetClose>
                   </div>
                   <SheetDescription>
-                    დააფილტრეთ და დაალაგეთ პროდუქტები
+                    {t('product.filterAndSort')}
                   </SheetDescription>
                 </SheetHeader>
                 <div className="space-y-6 py-4">
@@ -793,14 +795,14 @@ export default function ShopPage() {
                     e.preventDefault();
                     handleApplyFilter(true);
                   }} variant="default" className="w-full">
-                    გაფილტვრა
+                    {t('product.filter')}
                   </Button>
                   <Button onClick={handleReset} variant="outline" className="w-full">
-                    ფილტრის გასუფთავება
+                    {t('product.clearFilter')}
                   </Button>
                   <SheetClose asChild>
                     <Button variant="ghost" className="w-full mt-1">
-                      ფილტრის დახურვა
+                      {t('product.closeFilter')}
                     </Button>
                   </SheetClose>
                 </div>
@@ -816,13 +818,13 @@ export default function ShopPage() {
             <Card className="sticky shadow-sm hover:shadow-md transition-shadow duration-200" style={{ top: filterTopPosition }}>
               <CardHeader className="py-2 px-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">ფილტრი</CardTitle>
+                  <CardTitle className="text-sm">{t('product.filter')}</CardTitle>
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     onClick={() => setShowFilters(false)}
                     className="h-6 w-6 p-0"
-                    aria-label="ფილტრის დახურვა"
+                    aria-label={t('product.closeFilter')}
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -837,10 +839,10 @@ export default function ShopPage() {
                   e.preventDefault();
                   handleApplyFilter(false);
                 }} variant="default" className="w-full text-xs py-1 h-8">
-                  გაფილტვრა
+                  {t('product.filter')}
                 </Button>
                 <Button onClick={handleReset} variant="outline" className="w-full text-xs py-1 h-8">
-                  გასუფთავება
+                  {t('product.clearFilter')}
                 </Button>
               </CardFooter>
             </Card>
@@ -857,7 +859,7 @@ export default function ShopPage() {
                 onClick={() => setShowFilters(true)}
               >
                 <MemoizedFilterIcon className="h-3.5 w-3.5" />
-                <span>ფილტრის ჩართვა</span>
+                <span>{t('product.enableFilter')}</span>
               </Button>
             </div>
           )}
@@ -904,17 +906,16 @@ export default function ShopPage() {
             </div>
           ) : (filteredProducts.length === 0 && specialProducts.length === 0) ? (
             <div className="text-center py-12">
-              <h2 className="text-xl font-medium mb-2">პროდუქტები ვერ მოიძებნა</h2>
+              <h2 className="text-xl font-medium mb-2">{t('product.notFound')}</h2>
               <p className="text-muted-foreground">
-                ვერ მოიძებნა პროდუქტი თქვენი პარამეტრებით.
-                შეცვალეთ ფილტრაციის პარამეტრები ან გაასუფთავეთ ფილტრი.
+                {t('product.notFoundDescription')}
               </p>
               <Button 
                 className="mt-4"
                 onClick={handleReset}
                 variant="outline"
               >
-                ფილტრის გასუფთავება
+                {t('product.clearFilter')}
               </Button>
             </div>
           ) : (
@@ -1054,23 +1055,47 @@ export default function ShopPage() {
                   )}
                   
                   {/* მეტის ჩატვირთვის ღილაკი - ჩანს მხოლოდ button ტიპის ჩატვირთვის შემთხვევაში */}
-                  {siteSettings.loadingType === 'button' && !isLoadingMore && filteredProducts.length > 0 && indexOfLastItem < filteredProducts.length && (
+                  {/* This entire block is removed */}
+                  {/* siteSettings.loadingType === 'button' && !isLoadingMore && filteredProducts.length > 0 && indexOfLastItem < filteredProducts.length && (
                     <div className="loading-indicator-container">
                       <Button 
                         onClick={handleLoadMore} 
                         variant="outline" 
                         className="px-6"
                       >
-                        მეტის ჩატვირთვა
+                        {t('product.showMore')}
                       </Button>
                     </div>
-                  )}
+                  ) */}
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+      
+      {/* Load More Button */}
+      {!isLoading && siteSettings.loadingType === 'button' && 
+        indexOfLastItem < filteredProducts.length && (
+          <div className="flex justify-center mt-8">
+            <Button
+              variant="outline"
+              onClick={handleLoadMore}
+              className="max-w-sm h-10 font-medium" // Removed w-full
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? t('product.loading') : t('product.showMore')}
+            </Button>
+          </div>
+      )}
+      
+      {/* Loading More Indicator */}
+      {isLoadingMore && siteSettings.loadingType === 'infinite' && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
+          <span className="ml-2 text-sm text-muted-foreground">{t('product.loading')}</span>
+        </div>
+      )}
     </ShopLayout>
   );
 } 
