@@ -84,7 +84,7 @@ export default function RootLayout({
   return (
     <html lang="ka" suppressHydrationWarning>
       <head>
-        <title>OnLyne Store - ონლაინ მაღაზია</title>
+        <title>Online Store - ონლაინ მაღაზია</title>
         <meta name="description" content="ონლაინ მაღაზია სადაც შეგიძლიათ შეიძინოთ ყველაფერი" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* წინასწარ ვტვირთავთ დომენებს */}

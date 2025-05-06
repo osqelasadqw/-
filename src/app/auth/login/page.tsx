@@ -38,7 +38,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="text-2xl font-bold">
-            OnLyne Store
+            Online Store
           </Link>
           <p className="text-sm text-muted-foreground mt-2">
             Admin Dashboard Login

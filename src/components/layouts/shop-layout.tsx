@@ -191,7 +191,7 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* ჩვენს შესახებ */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">OnLyne Store</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Online Store</h3>
             <p className="text-sm text-gray-200 line-clamp-4">
               {settings?.aboutUsContent || 'ჩვენ გთავაზობთ საუკეთესო ხარისხის პროდუქციას ხელმისაწვდომ ფასად. აღმოაჩინეთ მრავალფეროვანი არჩევანი ჩვენს ონლაინ მაღაზიაში.'}
             </p>
@@ -251,7 +251,7 @@ const FooterSection = memo(({ settings }: { settings: any }) => {
           </div>
         </div>
         <div className="pt-6 border-t border-gray-700 text-center text-xs text-gray-300">
-          <p>© {year} OnLyne Store. {t('footer.rights')}</p>
+          <p>© {year} Online Store. {t('footer.rights')}</p>
         </div>
       </div>
     </footer>
@@ -386,7 +386,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-6">
                 <Link href="/shop" className="text-xl font-bold tracking-tight">
-                  OnLyne Store
+                  Online Store
                 </Link>
               </div>
               
