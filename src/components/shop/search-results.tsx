@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Product } from '@/types';
 import { useRouter } from 'next/navigation';
-import { getProducts } from '@/lib/firebase-service';
+import { getProducts, getSafeImageUrl } from '@/lib/firebase-service';
 import { X, ShoppingCart, ArrowRight } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,92 +17,114 @@ interface SearchResultsProps {
   isOpen: boolean;
 }
 
-const CompactListItem = memo(({ product, onProductClick, onAddToCartClick }: { product: Product, onProductClick: (id: string) => void, onAddToCartClick: (e: React.MouseEvent, product: Product) => void }) => (
-  <div 
-    className="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer transition-colors rounded-md border-b last:border-b-0"
-    onClick={() => onProductClick(product.id)}
-  >
-    <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
-      <Image
-        src={product.images?.[0] || '/placeholder.png'}
-        alt={product.name}
-        fill
-        className="object-cover"
-        sizes="48px"
-      />
-    </div>
-    <div className="flex-1 min-w-0">
-      <h3 className="font-medium text-sm truncate">{product.name}</h3>
-      <span className="text-xs font-semibold text-gray-700">
-        {new Intl.NumberFormat('ka-GE', {
-          style: 'currency',
-          currency: 'GEL',
-          maximumFractionDigits: 0
-        }).format(product.price)}
-      </span>
-    </div>
-    <Button 
-      size="sm" 
-      variant="ghost"
-      className="rounded-full w-8 h-8 p-0 ml-auto"
-      onClick={(e) => onAddToCartClick(e, product)}
-      aria-label="კალათში დამატება"
+// გაუმჯობესებული სურათის URL ლოგიკა
+const getImageUrl = (product: Product): string => {
+  if (!product.images || !product.images.length) {
+    return '/placeholder.png';
+  }
+  
+  // გამოვიყენოთ ახალი უსაფრთხო ფუნქცია
+  return getSafeImageUrl(product.images[0]);
+};
+
+const CompactListItem = memo(({ product, onProductClick, onAddToCartClick }: { product: Product, onProductClick: (id: string) => void, onAddToCartClick: (e: React.MouseEvent, product: Product) => void }) => {
+  // გამოვიყენოთ საერთო ფუნქცია სურათის URL-ის მისაღებად
+  const imageUrl = getImageUrl(product);
+  
+  return (
+    <div 
+      className="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer transition-colors rounded-md border-b last:border-b-0"
+      onClick={() => onProductClick(product.id)}
     >
-      <ShoppingCart className="h-4 w-4" />
-    </Button>
-  </div>
-));
+      <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
+        <Image
+          src={imageUrl}
+          alt={product.name}
+          fill
+          className="object-cover"
+          sizes="48px"
+          unoptimized={imageUrl === '/placeholder.png'}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-medium text-sm truncate">{product.name}</h3>
+        <span className="text-xs font-semibold text-gray-700">
+          {new Intl.NumberFormat('ka-GE', {
+            style: 'currency',
+            currency: 'GEL',
+            maximumFractionDigits: 0
+          }).format(product.price)}
+        </span>
+      </div>
+      <Button 
+        size="sm" 
+        variant="ghost"
+        className="rounded-full w-8 h-8 p-0 ml-auto"
+        onClick={(e) => onAddToCartClick(e, product)}
+        aria-label="კალათში დამატება"
+      >
+        <ShoppingCart className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+});
 CompactListItem.displayName = 'CompactListItem';
 
-const ExpandedGridItem = memo(({ product, onProductClick, onAddToCartClick }: { product: Product, onProductClick: (id: string) => void, onAddToCartClick: (e: React.MouseEvent, product: Product) => void }) => (
-  <div 
-    key={product.id}
-    className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer bg-white flex flex-col"
-    onClick={() => onProductClick(product.id)}
-  >
-    <div className="relative w-full pt-[80%] overflow-hidden bg-gray-100">
-      <Image
-        src={product.images?.[0] || '/placeholder.png'}
-        alt={product.name}
-        fill
-        className="object-cover transition-transform duration-300 hover:scale-105"
-        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-      />
-      {product.promoActive && product.discountPercentage && product.hasPublicDiscount && (
-        <Badge variant="destructive" className="absolute top-2 right-2 z-10 font-medium px-2 py-0.5">
-          {product.discountPercentage}% ფასდაკლება
-        </Badge>
-      )}
-    </div>
-    <div className="p-3 flex-1 flex flex-col">
-      <h3 className="font-medium text-base truncate">{product.name}</h3>
-      <p className="text-sm text-gray-500 line-clamp-2 mt-1 mb-2">{product.description}</p>
-      <div className="flex items-center justify-between mt-auto">
-        {product.promoActive && product.discountPercentage && product.hasPublicDiscount ? (
-          <div className="flex flex-col">
-            <span className="text-xs line-through text-gray-400">
+const ExpandedGridItem = memo(({ product, onProductClick, onAddToCartClick }: { product: Product, onProductClick: (id: string) => void, onAddToCartClick: (e: React.MouseEvent, product: Product) => void }) => {
+  // გამოვიყენოთ საერთო ფუნქცია სურათის URL-ის მისაღებად
+  const imageUrl = getImageUrl(product);
+  
+  return (
+    <div 
+      key={product.id}
+      className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer bg-white flex flex-col"
+      onClick={() => onProductClick(product.id)}
+    >
+      <div className="relative w-full pt-[80%] overflow-hidden bg-gray-100">
+        <Image
+          src={imageUrl}
+          alt={product.name}
+          fill
+          className="object-cover transition-transform duration-300 hover:scale-105"
+          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+          unoptimized={imageUrl === '/placeholder.png'}
+        />
+        {product.promoActive && product.discountPercentage && product.hasPublicDiscount && (
+          <Badge variant="destructive" className="absolute top-2 right-2 z-10 font-medium px-2 py-0.5">
+            {product.discountPercentage}% ფასდაკლება
+          </Badge>
+        )}
+      </div>
+      <div className="p-3">
+        <h3 className="font-medium text-base truncate">{product.name}</h3>
+        <p className="text-sm text-gray-500 line-clamp-2 mt-1 mb-2">{product.description}</p>
+        <div className="flex items-center justify-between mt-auto">
+          {product.promoActive && product.discountPercentage && product.hasPublicDiscount ? (
+            <div className="flex flex-col">
+              <span className="text-xs line-through text-gray-400">
+                {new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL', maximumFractionDigits: 0 }).format(product.price)}
+              </span>
+              <span className="text-base font-bold text-destructive">
+                {new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL', maximumFractionDigits: 0 }).format(product.price * (1 - (product.discountPercentage || 0) / 100))}
+              </span>
+            </div>
+          ) : (
+            <span className="text-base font-bold">
               {new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL', maximumFractionDigits: 0 }).format(product.price)}
             </span>
-            <span className="text-base font-bold text-destructive">
-              {new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL', maximumFractionDigits: 0 }).format(product.price * (1 - (product.discountPercentage || 0) / 100))}
-            </span>
-          </div>
-        ) : (
-          <span className="text-base font-bold">
-            {new Intl.NumberFormat('ka-GE', { style: 'currency', currency: 'GEL', maximumFractionDigits: 0 }).format(product.price)}
-          </span>
-        )}
-        <Button 
-          size="sm" 
-          className="rounded-full w-9 h-9 p-0"
-          onClick={(e) => onAddToCartClick(e, product)}
-        >
-          <ShoppingCart className="h-4 w-4" />
-        </Button>
+          )}
+          <Button 
+            size="sm" 
+            className="rounded-full w-9 h-9 p-0"
+            onClick={(e) => onAddToCartClick(e, product)}
+          >
+            <ShoppingCart className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
-  </div>
-));
+  );
+});
 ExpandedGridItem.displayName = 'ExpandedGridItem';
 
 const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsProps) => {
@@ -114,6 +136,36 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
   const expandedViewRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart();
   
+  // სურათების წინასწარ ჩატვირთვის ფუნქცია
+  const preloadImages = useCallback((products: Product[]) => {
+    // სურათების პარალელური ჩატვირთვისთვის ვიყენებთ Promise.all
+    Promise.all(
+      products
+        .filter(product => product.images && product.images.length > 0)
+        .map(product => {
+          const imageUrl = getImageUrl(product);
+          
+          // დავაბრუნოთ Promise თითოეული სურათისთვის
+          return new Promise<void>((resolve) => {
+            // სურათის იმაგნეთში ჩატვირთვა ბრაუზერის ქეშისთვის
+            const img = new Image();
+            
+            // როცა სურათი ჩაიტვირთება ან შეცდომა მოხდება, დავასრულოთ Promise
+            img.onload = () => resolve();
+            img.onerror = () => {
+              console.warn(`Failed to preload image: ${imageUrl}`);
+              resolve(); // მიუხედავად შეცდომისა, გავაგრძელოთ სხვა სურათების ჩატვირთვა
+            };
+            
+            // დავიწყოთ ჩატვირთვა
+            img.src = imageUrl;
+          });
+        })
+    )
+      .then(() => console.log('Preloaded images for search results'))
+      .catch(error => console.error('Error preloading images:', error));
+  }, []);
+
   const handleClose = useCallback(() => {
     setIsExpanded(false);
     onClose();
@@ -135,6 +187,9 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
           product.description.toLowerCase().includes(searchTerm.toLowerCase())
         );
         setResults(filtered);
+        
+        // ჩავტვირთოთ სურათები წინასწარ
+        preloadImages(filtered);
       } catch (error) {
         console.error("Error searching products:", error);
         setResults([]);
@@ -144,7 +199,7 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
     };
     
     searchProducts();
-  }, [searchTerm]);
+  }, [searchTerm, preloadImages]);
   
   useEffect(() => {
     if (!isOpen) {

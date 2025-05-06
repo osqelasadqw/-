@@ -490,16 +490,37 @@ export const deleteCategory = async (id: string): Promise<void> => {
 // Products
 export const getProducts = async (): Promise<Product[]> => {
   return getFromCacheOrFetch('all-products', async () => {
-  try {
+    try {
       const productsSnapshot = await getDocs(collection(db, 'products'));
-    return productsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+      const products = productsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
       }) as Product);
-  } catch (error) {
+      
+      // დავამატოთ ვალიდაცია თითოეული პროდუქტის სურათისთვის
+      return products.map(product => {
+        if (product.images && product.images.length > 0) {
+          // დავრწმუნდეთ, რომ ყველა სურათის URL ვალიდურია
+          const validatedImages = product.images
+            .filter(url => url && typeof url === 'string' && url.trim() !== '')
+            .map(url => getSafeImageUrl(url));
+          
+          return {
+            ...product,
+            images: validatedImages.length > 0 ? validatedImages : ['/placeholder.png']
+          };
+        }
+        
+        // თუ სურათები არ აქვს, დავაბრუნოთ დეფოლტით placeholder
+        return {
+          ...product,
+          images: ['/placeholder.png']
+        };
+      });
+    } catch (error) {
       logFirebaseError('getProducts', error);
-    return [];
-  }
+      return [];
+    }
   });
 };
 
@@ -1170,4 +1191,58 @@ export const decrementStock = async (productId: string): Promise<boolean> => {
     console.error('Error decrementing product stock:', error);
     throw error;
   }
+};
+
+/**
+ * ამოწმებს სურათის URL-ს ვალიდურია თუ არა და არსებობს თუ არა სურათი
+ * @param url სურათის URL მისამართი
+ * @returns Promise<boolean> დააბრუნებს true თუ სურათი არსებობს და ვალიდურია
+ */
+export const validateImageURL = async (url: string): Promise<boolean> => {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return false;
+  }
+
+  try {
+    // შევქმნათ მოთხოვნა HEAD მეთოდით - ეს მხოლოდ ჰედერებს მოითხოვს, არა მთლიან სურათს
+    const response = await fetch(url, { method: 'HEAD' });
+    
+    // თუ სტატუსი 200-299 დიაპაზონშია, სურათი ხელმისაწვდომია
+    if (response.ok) {
+      // დამატებით შევამოწმოთ მიმტიპი
+      const contentType = response.headers.get('content-type');
+      return contentType ? contentType.startsWith('image/') : true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error validating image URL:', error);
+    return false;
+  }
+};
+
+/**
+ * აბრუნებს ვალიდურ სურათის URL-ს ან პლეისჰოლდერს
+ * @param imageUrl სურათის URL მისამართი
+ * @param placeholder (Optional) ალტერნატიული პლეისჰოლდერი, თუ სურათი არ არსებობს
+ * @returns string ვალიდური სურათის URL ან პლეისჰოლდერი
+ */
+export const getSafeImageUrl = (imageUrl: string | undefined, placeholder: string = '/placeholder.png'): string => {
+  if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+    return placeholder;
+  }
+  
+  // Firebase Storage URL-ის ვალიდაცია
+  if (imageUrl.includes('firebasestorage.googleapis.com')) {
+    // თუ ეს Firebase Storage URL-ია, დავაბრუნოთ როგორც არის
+    return imageUrl;
+  }
+  
+  // თუ აბსოლუტური URL-ია, დავაბრუნოთ ის
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl;
+  }
+  
+  // თუ ფარდობითი გზაა, დავაბრუნოთ ის
+  return imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
 }; 
