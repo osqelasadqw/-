@@ -54,9 +54,13 @@ function getFromCacheOrFetch<T>(
   const cachedItem = cache[cacheKey];
   const now = Date.now();
   
+  // თუ ეს არის პროდუქტების ძიება, გამოვიყენოთ ოპტიმიზებული ფუნქცია
+  if (cacheKey === 'all-products') {
+    return getProducts() as Promise<T>;
+  }
+  
   // თუ ქეშში არსებობს და არ არის ვადაგასული
   if (cachedItem && (now - cachedItem.timestamp) < expiry) {
-    console.log(`[Cache hit] ${cacheKey}`);
     return Promise.resolve(cachedItem.data);
   }
   
@@ -66,8 +70,10 @@ function getFromCacheOrFetch<T>(
       data,
       timestamp: now
     };
-    console.log(`[Cache miss] ${cacheKey}`);
     return data;
+  }).catch(err => {
+    console.error(`Error fetching ${cacheKey}:`, err);
+    throw err;
   });
 }
 
@@ -489,39 +495,32 @@ export const deleteCategory = async (id: string): Promise<void> => {
 
 // Products
 export const getProducts = async (): Promise<Product[]> => {
-  return getFromCacheOrFetch('all-products', async () => {
-    try {
-      const productsSnapshot = await getDocs(collection(db, 'products'));
-      const products = productsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }) as Product);
-      
-      // დავამატოთ ვალიდაცია თითოეული პროდუქტის სურათისთვის
-      return products.map(product => {
-        if (product.images && product.images.length > 0) {
-          // დავრწმუნდეთ, რომ ყველა სურათის URL ვალიდურია
-          const validatedImages = product.images
-            .filter(url => url && typeof url === 'string' && url.trim() !== '')
-            .map(url => getSafeImageUrl(url));
-          
-          return {
-            ...product,
-            images: validatedImages.length > 0 ? validatedImages : ['/placeholder.png']
-          };
-        }
-        
-        // თუ სურათები არ აქვს, დავაბრუნოთ დეფოლტით placeholder
-        return {
-          ...product,
-          images: ['/placeholder.png']
-        };
-      });
-    } catch (error) {
-      logFirebaseError('getProducts', error);
-      return [];
+  try {
+    // პირდაპირ Firebase-დან ვიღებთ, ქეშირების გარეშე
+    const productsSnapshot = await getDocs(collection(db, 'products'));
+    const products = productsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }) as Product);
+    
+    // განვაახლოთ ქეში
+    cache['all-products'] = {
+      data: products,
+      timestamp: Date.now()
+    };
+    
+    return products;
+  } catch (error) {
+    logFirebaseError('getProducts', error);
+    
+    // თუ ქეშში გვაქვს, დავაბრუნოთ წინა მონაცემები
+    const cachedData = cache['all-products'];
+    if (cachedData) {
+      return cachedData.data;
     }
-  });
+    
+    return [];
+  }
 };
 
 export const getProductsByCategory = async (categoryId: string): Promise<Product[]> => {
@@ -1193,56 +1192,18 @@ export const decrementStock = async (productId: string): Promise<boolean> => {
   }
 };
 
-/**
- * ამოწმებს სურათის URL-ს ვალიდურია თუ არა და არსებობს თუ არა სურათი
- * @param url სურათის URL მისამართი
- * @returns Promise<boolean> დააბრუნებს true თუ სურათი არსებობს და ვალიდურია
- */
-export const validateImageURL = async (url: string): Promise<boolean> => {
-  if (!url || typeof url !== 'string' || url.trim() === '') {
-    return false;
-  }
-
+// ფუნქცია ქეშის გასასუფთავებლად და მონაცემების თავიდან ჩასატვირთად
+export const refreshProductCache = async (): Promise<Product[]> => {
   try {
-    // შევქმნათ მოთხოვნა HEAD მეთოდით - ეს მხოლოდ ჰედერებს მოითხოვს, არა მთლიან სურათს
-    const response = await fetch(url, { method: 'HEAD' });
-    
-    // თუ სტატუსი 200-299 დიაპაზონშია, სურათი ხელმისაწვდომია
-    if (response.ok) {
-      // დამატებით შევამოწმოთ მიმტიპი
-      const contentType = response.headers.get('content-type');
-      return contentType ? contentType.startsWith('image/') : true;
+    // წავშალოთ ქეში
+    if (cache['all-products']) {
+      delete cache['all-products'];
     }
     
-    return false;
+    // თავიდან ჩავტვირთოთ
+    return await getProducts();
   } catch (error) {
-    console.error('Error validating image URL:', error);
-    return false;
+    console.error('refreshProductCache: შეცდომა', error);
+    return [];
   }
 };
-
-/**
- * აბრუნებს ვალიდურ სურათის URL-ს ან პლეისჰოლდერს
- * @param imageUrl სურათის URL მისამართი
- * @param placeholder (Optional) ალტერნატიული პლეისჰოლდერი, თუ სურათი არ არსებობს
- * @returns string ვალიდური სურათის URL ან პლეისჰოლდერი
- */
-export const getSafeImageUrl = (imageUrl: string | undefined, placeholder: string = '/placeholder.png'): string => {
-  if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
-    return placeholder;
-  }
-  
-  // Firebase Storage URL-ის ვალიდაცია
-  if (imageUrl.includes('firebasestorage.googleapis.com')) {
-    // თუ ეს Firebase Storage URL-ია, დავაბრუნოთ როგორც არის
-    return imageUrl;
-  }
-  
-  // თუ აბსოლუტური URL-ია, დავაბრუნოთ ის
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    return imageUrl;
-  }
-  
-  // თუ ფარდობითი გზაა, დავაბრუნოთ ის
-  return imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-}; 

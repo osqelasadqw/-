@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Product } from '@/types';
 import { useRouter } from 'next/navigation';
-import { getProducts, getSafeImageUrl } from '@/lib/firebase-service';
+import { getProducts, refreshProductCache } from '@/lib/firebase-service';
 import { X, ShoppingCart, ArrowRight } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,19 +17,8 @@ interface SearchResultsProps {
   isOpen: boolean;
 }
 
-// გაუმჯობესებული სურათის URL ლოგიკა
-const getImageUrl = (product: Product): string => {
-  if (!product.images || !product.images.length) {
-    return '/placeholder.png';
-  }
-  
-  // გამოვიყენოთ ახალი უსაფრთხო ფუნქცია
-  return getSafeImageUrl(product.images[0]);
-};
-
 const CompactListItem = memo(({ product, onProductClick, onAddToCartClick }: { product: Product, onProductClick: (id: string) => void, onAddToCartClick: (e: React.MouseEvent, product: Product) => void }) => {
-  // გამოვიყენოთ საერთო ფუნქცია სურათის URL-ის მისაღებად
-  const imageUrl = getImageUrl(product);
+  const imageUrl = product.images?.[0];
   
   return (
     <div 
@@ -38,12 +27,12 @@ const CompactListItem = memo(({ product, onProductClick, onAddToCartClick }: { p
     >
       <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
         <Image
-          src={imageUrl}
+          src={imageUrl || '/placeholder.png'}
           alt={product.name}
           fill
           className="object-cover"
           sizes="48px"
-          unoptimized={imageUrl === '/placeholder.png'}
+          unoptimized={true}
         />
       </div>
       <div className="flex-1 min-w-0">
@@ -71,8 +60,7 @@ const CompactListItem = memo(({ product, onProductClick, onAddToCartClick }: { p
 CompactListItem.displayName = 'CompactListItem';
 
 const ExpandedGridItem = memo(({ product, onProductClick, onAddToCartClick }: { product: Product, onProductClick: (id: string) => void, onAddToCartClick: (e: React.MouseEvent, product: Product) => void }) => {
-  // გამოვიყენოთ საერთო ფუნქცია სურათის URL-ის მისაღებად
-  const imageUrl = getImageUrl(product);
+  const imageUrl = product.images?.[0];
   
   return (
     <div 
@@ -82,12 +70,12 @@ const ExpandedGridItem = memo(({ product, onProductClick, onAddToCartClick }: { 
     >
       <div className="relative w-full pt-[80%] overflow-hidden bg-gray-100">
         <Image
-          src={imageUrl}
+          src={imageUrl || '/placeholder.png'}
           alt={product.name}
           fill
           className="object-cover transition-transform duration-300 hover:scale-105"
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-          unoptimized={imageUrl === '/placeholder.png'}
+          unoptimized={true}
         />
         {product.promoActive && product.discountPercentage && product.hasPublicDiscount && (
           <Badge variant="destructive" className="absolute top-2 right-2 z-10 font-medium px-2 py-0.5">
@@ -95,7 +83,7 @@ const ExpandedGridItem = memo(({ product, onProductClick, onAddToCartClick }: { 
           </Badge>
         )}
       </div>
-      <div className="p-3">
+      <div className="p-3 flex-1 flex flex-col">
         <h3 className="font-medium text-base truncate">{product.name}</h3>
         <p className="text-sm text-gray-500 line-clamp-2 mt-1 mb-2">{product.description}</p>
         <div className="flex items-center justify-between mt-auto">
@@ -136,36 +124,6 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
   const expandedViewRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart();
   
-  // სურათების წინასწარ ჩატვირთვის ფუნქცია
-  const preloadImages = useCallback((products: Product[]) => {
-    // სურათების პარალელური ჩატვირთვისთვის ვიყენებთ Promise.all
-    Promise.all(
-      products
-        .filter(product => product.images && product.images.length > 0)
-        .map(product => {
-          const imageUrl = getImageUrl(product);
-          
-          // დავაბრუნოთ Promise თითოეული სურათისთვის
-          return new Promise<void>((resolve) => {
-            // სურათის იმაგნეთში ჩატვირთვა ბრაუზერის ქეშისთვის
-            const img = new Image();
-            
-            // როცა სურათი ჩაიტვირთება ან შეცდომა მოხდება, დავასრულოთ Promise
-            img.onload = () => resolve();
-            img.onerror = () => {
-              console.warn(`Failed to preload image: ${imageUrl}`);
-              resolve(); // მიუხედავად შეცდომისა, გავაგრძელოთ სხვა სურათების ჩატვირთვა
-            };
-            
-            // დავიწყოთ ჩატვირთვა
-            img.src = imageUrl;
-          });
-        })
-    )
-      .then(() => console.log('Preloaded images for search results'))
-      .catch(error => console.error('Error preloading images:', error));
-  }, []);
-
   const handleClose = useCallback(() => {
     setIsExpanded(false);
     onClose();
@@ -181,15 +139,22 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
       
       setLoading(true);
       try {
-        const allProducts = await getProducts();
+        const allProducts = await refreshProductCache();
+        
+        if (allProducts.length > 0) {
+          // ყველაფერი რიგზეა
+        }
+        
         const filtered = allProducts.filter(product => 
           product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           product.description.toLowerCase().includes(searchTerm.toLowerCase())
         );
-        setResults(filtered);
         
-        // ჩავტვირთოთ სურათები წინასწარ
-        preloadImages(filtered);
+        if (filtered.length > 0) {
+          // ყველაფერი რიგზეა
+        }
+        
+        setResults(filtered);
       } catch (error) {
         console.error("Error searching products:", error);
         setResults([]);
@@ -199,7 +164,7 @@ const SearchResultsComponent = ({ searchTerm, onClose, isOpen }: SearchResultsPr
     };
     
     searchProducts();
-  }, [searchTerm, preloadImages]);
+  }, [searchTerm]);
   
   useEffect(() => {
     if (!isOpen) {
